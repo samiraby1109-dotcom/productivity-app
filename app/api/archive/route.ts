@@ -18,10 +18,22 @@ export async function GET(req: NextRequest) {
 
     if (error) return apiError(500, "Failed to fetch archive");
 
+    // Cast once to a concrete row type — Supabase infers `never[]` for narrow selects.
+    type ArchiveEntryRow = {
+      id: string;
+      created_at: string;
+      updated_at: string;
+      incident_types: string[];
+      flags_police: boolean;
+      flags_children: boolean;
+      flags_witness: boolean;
+      has_attachments: boolean;
+      encrypted_payload: string;
+    };
+    const archiveRows = (data ?? []) as ArchiveEntryRow[];
+
     // Include purge_at from archive_queue
-    type EntryRow = { id: string };
-    const rows = (data ?? []) as EntryRow[];
-    const entryIds = rows.map((e) => e.id);
+    const entryIds = archiveRows.map((e) => e.id);
     let queueMap: Record<string, string> = {};
     if (entryIds.length > 0) {
       const { data: queue } = await db
@@ -33,7 +45,7 @@ export async function GET(req: NextRequest) {
       queueMap = Object.fromEntries(queueRows.map((q) => [q.entry_id, q.purge_at]));
     }
 
-    const enriched = (data ?? []).map((e) => ({
+    const enriched = archiveRows.map((e) => ({
       ...e,
       purge_at: queueMap[e.id] ?? null,
     }));
