@@ -1,0 +1,181 @@
+"use client";
+import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
+import NavShell from "@/components/NavShell";
+import IdleLock from "@/components/IdleLock";
+import RecordFilters, { type FilterState } from "@/components/RecordFilters";
+import { INCIDENT_TYPES } from "@/lib/constants";
+import { formatDate } from "@/lib/utils";
+
+interface RecordRow {
+  id: string;
+  created_at: string;
+  incident_types: string[];
+  flags_police: boolean;
+  flags_children: boolean;
+  flags_witness: boolean;
+  has_attachments: boolean;
+  encrypted_payload: string;
+}
+
+const EMPTY_FILTERS: FilterState = {
+  from: "",
+  to: "",
+  police: null,
+  children: null,
+  witness: null,
+  attachments: null,
+  types: [],
+  status: "ACTIVE",
+};
+
+interface Props {
+  mode: "FULL" | "DECOY";
+  email: string;
+  passwordSalt: string;
+}
+
+export default function RecordsClient({ mode, email, passwordSalt }: Props) {
+  const [records, setRecords] = useState<RecordRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [toast, setToast] = useState("");
+
+  const fetchRecords = useCallback(async () => {
+    setLoading(true);
+    const params = new URLSearchParams();
+    params.set("status", filters.status);
+    if (filters.from) params.set("from", filters.from);
+    if (filters.to) params.set("to", filters.to);
+    if (filters.police !== null) params.set("police", String(filters.police));
+    if (filters.children !== null) params.set("children", String(filters.children));
+    if (filters.witness !== null) params.set("witness", String(filters.witness));
+    if (filters.attachments !== null) params.set("attachments", String(filters.attachments));
+    filters.types.forEach((t) => params.append("type", t));
+
+    const res = await fetch(`/api/records?${params.toString()}`);
+    if (res.ok) {
+      const data = await res.json();
+      setRecords(data.records ?? []);
+    }
+    setLoading(false);
+  }, [filters]);
+
+  useEffect(() => { fetchRecords(); }, [fetchRecords]);
+
+  async function handleDelete(id: string) {
+    setDeleting(id);
+    const res = await fetch(`/api/records/${id}`, { method: "DELETE" });
+    if (res.ok) {
+      setRecords((r) => r.filter((e) => e.id !== id));
+      showToast("Entry removed.");
+    }
+    setDeleting(null);
+  }
+
+  function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(""), 3000);
+  }
+
+  function incidentLabel(key: string): string {
+    return INCIDENT_TYPES.find((t) => t.key === key)?.label.split(" (")[0] ?? key;
+  }
+
+  return (
+    <>
+      <IdleLock mode={mode} email={email} passwordSalt={passwordSalt} />
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white text-sm px-5 py-3 rounded-xl shadow-lg">
+          {toast}
+        </div>
+      )}
+
+      <NavShell mode={mode}>
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-lg font-semibold text-gray-900">Records</h1>
+          <Link
+            href="/tools/records/new"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 transition-colors"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+            Add entry
+          </Link>
+        </div>
+
+        <RecordFilters filters={filters} onChange={setFilters} />
+
+        {loading ? (
+          <div className="text-center py-12 text-gray-400 text-sm">Loading…</div>
+        ) : records.length === 0 ? (
+          <div className="text-center py-12 text-gray-400 text-sm">
+            {filters === EMPTY_FILTERS ? "No records yet. Add your first entry." : "No records match your filters."}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {records.map((r) => (
+              <div
+                key={r.id}
+                className="bg-white rounded-xl border border-gray-100 p-4 group"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-gray-400 mb-1">{formatDate(r.created_at)}</p>
+
+                    {/* Incident type badges */}
+                    {r.incident_types.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {r.incident_types.slice(0, 3).map((t) => (
+                          <span key={t} className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 text-[11px]">
+                            {incidentLabel(t)}
+                          </span>
+                        ))}
+                        {r.incident_types.length > 3 && (
+                          <span className="text-[11px] text-gray-400">+{r.incident_types.length - 3} more</span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Flags */}
+                    <div className="flex gap-2 text-xs text-gray-400">
+                      {r.flags_police && <span>Police</span>}
+                      {r.flags_children && <span>Children</span>}
+                      {r.flags_witness && <span>Witness</span>}
+                      {r.has_attachments && <span>📎</span>}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <Link
+                      href={`/tools/records/${r.id}`}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition-colors"
+                      aria-label="View entry"
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    </Link>
+                    <button
+                      onClick={() => handleDelete(r.id)}
+                      disabled={deleting === r.id}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
+                      aria-label="Remove entry"
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                        <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </NavShell>
+    </>
+  );
+}

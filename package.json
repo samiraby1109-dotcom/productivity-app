@@ -1,0 +1,41 @@
+{
+  "name": "daybook",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "seed": "npx tsx scripts/seed-demo-user.ts"
+  },
+  "dependencies": {
+    "next": "15.1.0",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "@supabase/supabase-js": "^2.47.0",
+    "argon2-browser": "^1.18.0",
+    "jose": "^5.9.3",
+    "jspdf": "^2.5.2",
+    "jspdf-autotable": "^3.8.3",
+    "jszip": "^3.10.1",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^2.6.0",
+    "uuid": "^11.0.3",
+    "next-pwa": "^5.6.0",
+    "idb": "^8.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/uuid": "^10.0.0",
+    "typescript": "^5.7.0",
+    "tailwindcss": "^3.4.17",
+    "postcss": "^8.5.1",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^9.17.0",
+    "eslint-config-next": "15.1.0",
+    "tsx": "^4.19.2"
+  }
+}
