@@ -1,5 +1,6 @@
-// Auto-generated type definitions for Supabase tables.
-// Keep in sync with supabase/migrations.
+// Manual type definitions for Supabase tables.
+// Uses flat, explicit Insert/Update types — avoids self-referential
+// Database[...]["Row"] cycles that TypeScript resolves as `never`.
 
 export type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
 
@@ -16,11 +17,24 @@ export interface Database {
           password_salt: string;
           created_at: string;
         };
-        Insert: Omit<Database["public"]["Tables"]["users"]["Row"], "id" | "created_at"> & {
+        Insert: {
           id?: string;
+          email: string;
+          password_hash: string;
+          password_hint?: string | null;
+          decoy_code_hash: string;
+          password_salt: string;
           created_at?: string;
         };
-        Update: Partial<Database["public"]["Tables"]["users"]["Insert"]>;
+        Update: {
+          id?: string;
+          email?: string;
+          password_hash?: string;
+          password_hint?: string | null;
+          decoy_code_hash?: string;
+          password_salt?: string;
+          created_at?: string;
+        };
       };
       vault_entries: {
         Row: {
@@ -37,12 +51,34 @@ export interface Database {
           encrypted_payload: string;
           payload_version: number;
         };
-        Insert: Omit<Database["public"]["Tables"]["vault_entries"]["Row"], "id" | "created_at" | "updated_at"> & {
+        Insert: {
           id?: string;
+          user_id: string;
           created_at?: string;
           updated_at?: string;
+          status?: "ACTIVE" | "ARCHIVED" | "PURGED";
+          incident_types?: string[];
+          flags_police?: boolean;
+          flags_children?: boolean;
+          flags_witness?: boolean;
+          has_attachments?: boolean;
+          encrypted_payload: string;
+          payload_version?: number;
         };
-        Update: Partial<Database["public"]["Tables"]["vault_entries"]["Insert"]>;
+        Update: {
+          id?: string;
+          user_id?: string;
+          created_at?: string;
+          updated_at?: string;
+          status?: "ACTIVE" | "ARCHIVED" | "PURGED";
+          incident_types?: string[];
+          flags_police?: boolean;
+          flags_children?: boolean;
+          flags_witness?: boolean;
+          has_attachments?: boolean;
+          encrypted_payload?: string;
+          payload_version?: number;
+        };
       };
       vault_media: {
         Row: {
@@ -57,11 +93,30 @@ export interface Database {
           encrypted_media_key: string;
           encrypted_media_iv: string;
         };
-        Insert: Omit<Database["public"]["Tables"]["vault_media"]["Row"], "id" | "created_at"> & {
+        Insert: {
           id?: string;
+          entry_id: string;
+          user_id: string;
           created_at?: string;
+          kind: "IMAGE" | "VIDEO" | "AUDIO";
+          mime_type: string;
+          size_bytes: number;
+          storage_path: string;
+          encrypted_media_key: string;
+          encrypted_media_iv: string;
         };
-        Update: Partial<Database["public"]["Tables"]["vault_media"]["Insert"]>;
+        Update: {
+          id?: string;
+          entry_id?: string;
+          user_id?: string;
+          created_at?: string;
+          kind?: "IMAGE" | "VIDEO" | "AUDIO";
+          mime_type?: string;
+          size_bytes?: number;
+          storage_path?: string;
+          encrypted_media_key?: string;
+          encrypted_media_iv?: string;
+        };
       };
       archive_queue: {
         Row: {
@@ -70,10 +125,18 @@ export interface Database {
           archived_at: string;
           purge_at: string;
         };
-        Insert: Omit<Database["public"]["Tables"]["archive_queue"]["Row"], "archived_at"> & {
+        Insert: {
+          entry_id: string;
+          user_id: string;
           archived_at?: string;
+          purge_at: string;
         };
-        Update: Partial<Database["public"]["Tables"]["archive_queue"]["Insert"]>;
+        Update: {
+          entry_id?: string;
+          user_id?: string;
+          archived_at?: string;
+          purge_at?: string;
+        };
       };
     };
   };
