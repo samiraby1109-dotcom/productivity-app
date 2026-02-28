@@ -19,7 +19,10 @@ export async function GET(req: NextRequest) {
     if (error) return apiError(500, "Failed to fetch archive");
 
     // Include purge_at from archive_queue
-    const entryIds = (data ?? []).map((e) => e.id);
+    type EntryRow = { id: string };
+
+const rows = (data ?? []) as EntryRow[];
+const entryIds = rows.map((e) => e.id);
     let queueMap: Record<string, string> = {};
     if (entryIds.length > 0) {
       const { data: queue } = await db
