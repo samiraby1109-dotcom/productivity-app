@@ -20,16 +20,17 @@ export async function GET(req: NextRequest) {
 
     // Include purge_at from archive_queue
     type EntryRow = { id: string };
-
-const rows = (data ?? []) as EntryRow[];
-const entryIds = rows.map((e) => e.id);
+    const rows = (data ?? []) as EntryRow[];
+    const entryIds = rows.map((e) => e.id);
     let queueMap: Record<string, string> = {};
     if (entryIds.length > 0) {
       const { data: queue } = await db
         .from("archive_queue")
         .select("entry_id, purge_at")
         .in("entry_id", entryIds);
-      queueMap = Object.fromEntries((queue ?? []).map((q) => [q.entry_id, q.purge_at]));
+      type QueueRow = { entry_id: string; purge_at: string };
+      const queueRows = (queue ?? []) as QueueRow[];
+      queueMap = Object.fromEntries(queueRows.map((q) => [q.entry_id, q.purge_at]));
     }
 
     const enriched = (data ?? []).map((e) => ({

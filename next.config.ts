@@ -3,10 +3,8 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // PWA handled via public/sw.js (custom service worker)
   // No Prisma; using Supabase JS client server-side
-  experimental: {
-    // Allow WASM for argon2-browser in API routes
-    serverComponentsExternalPackages: [],
-  },
+  // Allow WASM for argon2-browser in API routes (Next 15 top-level key)
+  serverExternalPackages: [],
   headers: async () => [
     {
       source: "/(.*)",
