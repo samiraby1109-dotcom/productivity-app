@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     // Filters
     const status = params.get("status");
     if (status && ["ACTIVE", "ARCHIVED"].includes(status)) {
-      query = query.eq("status", status);
+      query = query.eq("status", status as "ACTIVE" | "ARCHIVED");
     } else {
       query = query.eq("status", "ACTIVE");
     }

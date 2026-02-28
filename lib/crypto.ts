@@ -23,12 +23,16 @@ export interface WrappedKey {
 }
 
 // ─── Utility ──────────────────────────────────────────────────────────────────
-function toBase64(buf: ArrayBuffer): string {
-  return btoa(String.fromCharCode(...new Uint8Array(buf)));
+function toBase64(buf: ArrayBuffer | Uint8Array): string {
+  const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+  return btoa(Array.from(bytes, (b) => String.fromCharCode(b)).join(""));
 }
 
-function fromBase64(b64: string): Uint8Array {
-  return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+function fromBase64(b64: string): Uint8Array<ArrayBuffer> {
+  const str = atob(b64);
+  const result = new Uint8Array(str.length);
+  for (let i = 0; i < str.length; i++) result[i] = str.charCodeAt(i);
+  return result;
 }
 
 // ─── Key Derivation ───────────────────────────────────────────────────────────
@@ -40,7 +44,7 @@ export async function deriveVaultKey(
   password: string,
   saltBytes?: Uint8Array
 ): Promise<{ key: CryptoKey; salt: Uint8Array }> {
-  const salt = saltBytes ?? crypto.getRandomValues(new Uint8Array(SALT_BYTES));
+  const salt = saltBytes ? new Uint8Array(saltBytes) : crypto.getRandomValues(new Uint8Array(SALT_BYTES));
   const enc = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey(
     "raw",
@@ -181,7 +185,7 @@ export async function encryptFile(
   const result = new Uint8Array(IV_BYTES + ciphertext.byteLength);
   result.set(iv, 0);
   result.set(new Uint8Array(ciphertext), IV_BYTES);
-  return result.buffer;
+  return result.buffer as ArrayBuffer;
 }
 
 /**
@@ -200,7 +204,7 @@ export async function decryptFile(
 export async function sha256Hex(data: ArrayBuffer | string): Promise<string> {
   let buf: ArrayBuffer;
   if (typeof data === "string") {
-    buf = new TextEncoder().encode(data).buffer;
+    buf = new TextEncoder().encode(data).buffer as ArrayBuffer;
   } else {
     buf = data;
   }

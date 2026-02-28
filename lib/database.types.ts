@@ -1,8 +1,21 @@
 // Manual type definitions for Supabase tables.
-// Uses flat, explicit Insert/Update types — avoids self-referential
-// Database[...]["Row"] cycles that TypeScript resolves as `never`.
+//
+// IMPORTANT: Every table must include a `Relationships` field and the public
+// schema must include `Views` and `Functions` — these are required by
+// GenericTable / GenericSchema in @supabase/supabase-js v2.47+.
+// Without them, `Database extends GenericSchema` is false and every
+// TablesUpdate<> / TablesInsert<> utility collapses to `never`.
 
 export type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
+
+// Inline the shape from @supabase/supabase-js src/lib/rest/types/common/common.ts
+type Relationship = {
+  foreignKeyName: string;
+  columns: string[];
+  isOneToOne?: boolean;
+  referencedRelation: string;
+  referencedColumns: string[];
+};
 
 export interface Database {
   public: {
@@ -35,6 +48,7 @@ export interface Database {
           password_salt?: string;
           created_at?: string;
         };
+        Relationships: Relationship[];
       };
       vault_entries: {
         Row: {
@@ -79,6 +93,7 @@ export interface Database {
           encrypted_payload?: string;
           payload_version?: number;
         };
+        Relationships: Relationship[];
       };
       vault_media: {
         Row: {
@@ -117,6 +132,7 @@ export interface Database {
           encrypted_media_key?: string;
           encrypted_media_iv?: string;
         };
+        Relationships: Relationship[];
       };
       archive_queue: {
         Row: {
@@ -137,7 +153,11 @@ export interface Database {
           archived_at?: string;
           purge_at?: string;
         };
+        Relationships: Relationship[];
       };
     };
+    // Required by GenericSchema — empty since we have no views or functions
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
   };
 }

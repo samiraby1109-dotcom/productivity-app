@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
 
     const status = filters.status ?? "ACTIVE";
     if (["ACTIVE", "ARCHIVED"].includes(status)) {
-      query = query.eq("status", status);
+      query = query.eq("status", status as "ACTIVE" | "ARCHIVED");
     }
 
     if (filters.from) query = query.gte("created_at", filters.from);
