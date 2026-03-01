@@ -2,7 +2,7 @@
 import { useState } from "react";
 import NavShell from "@/components/NavShell";
 import IdleLock from "@/components/IdleLock";
-import { RESOURCES, getResourcesByZip, type Resource } from "@/data/resources-seed";
+import { RESOURCES, searchByZip, type Resource, type ZipSearchResult } from "@/data/resources-seed";
 
 interface Props {
   mode: "FULL" | "DECOY";
@@ -10,24 +10,23 @@ interface Props {
   passwordSalt: string;
 }
 
+const DEFAULT_RESULT: ZipSearchResult = {
+  national: RESOURCES.filter((r) => r.national),
+  local: [],
+  matchType: "none",
+};
+
 export default function ResourcesClient({ mode, email, passwordSalt }: Props) {
   const [zip, setZip] = useState("");
   const [submitted, setSubmitted] = useState(false);
-  const [results, setResults] = useState<Resource[]>([]);
+  const [result, setResult] = useState<ZipSearchResult>(DEFAULT_RESULT);
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = zip.trim().replace(/\D/g, "").slice(0, 5);
-    if (!trimmed) {
-      setResults(RESOURCES.filter((r) => r.national));
-    } else {
-      setResults(getResourcesByZip(trimmed));
-    }
+    setResult(trimmed ? searchByZip(trimmed) : DEFAULT_RESULT);
     setSubmitted(true);
   }
-
-  const national = results.filter((r) => r.national);
-  const local = results.filter((r) => !r.national);
 
   return (
     <>
@@ -35,11 +34,10 @@ export default function ResourcesClient({ mode, email, passwordSalt }: Props) {
       <NavShell mode={mode}>
         <h1 className="text-lg font-semibold text-gray-900 mb-1">Resources</h1>
         <p className="text-xs text-gray-400 mb-5">
-          Enter a ZIP code to find local services. National lines are always shown.
+          Enter any ZIP code to find local services. National lines are always shown.
           Location permission is never requested.
         </p>
 
-        {/* ZIP search */}
         <form onSubmit={handleSearch} className="flex gap-2 mb-6">
           <input
             type="tel"
@@ -58,37 +56,45 @@ export default function ResourcesClient({ mode, email, passwordSalt }: Props) {
           </button>
         </form>
 
-        {!submitted && (
+        <div className="space-y-5">
+          {/* National lines — always visible */}
           <div className="space-y-3">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">National lines</p>
-            {RESOURCES.filter((r) => r.national).map((r) => (
-              <ResourceCard key={r.name} resource={r} />
-            ))}
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">National (24/7, any location)</p>
+            {result.national.map((r) => <ResourceCard key={r.name} resource={r} />)}
           </div>
-        )}
 
-        {submitted && (
-          <div className="space-y-5">
-            {national.length > 0 && (
-              <div className="space-y-3">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">National</p>
-                {national.map((r) => <ResourceCard key={r.name} resource={r} />)}
-              </div>
-            )}
-            {local.length > 0 && (
-              <div className="space-y-3">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Near {zip}</p>
-                {local.map((r) => <ResourceCard key={r.name} resource={r} />)}
-              </div>
-            )}
-            {local.length === 0 && (
-              <p className="text-sm text-gray-400 text-center py-4">
-                No local services found for {zip || "that area"}.
-                The national lines above are available 24/7.
+          {/* Local results */}
+          {submitted && result.local.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                {result.matchType === "exact" ? `Near ${zip}` : `Nearby ${zip} (closest area)`}
               </p>
-            )}
-          </div>
-        )}
+              {result.matchType === "nearby" && (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                  No exact listings for {zip} — showing services in the surrounding area that may be able to help.
+                </p>
+              )}
+              {result.local.map((r) => <ResourceCard key={r.name} resource={r} />)}
+            </div>
+          )}
+
+          {/* No local match */}
+          {submitted && result.local.length === 0 && zip && (
+            <div className="bg-gray-50 border border-gray-100 rounded-xl p-4">
+              <p className="text-sm font-medium text-gray-700 mb-1">No local listings found for {zip}</p>
+              <p className="text-sm text-gray-600 leading-relaxed">
+                The National Support Line can connect you with local shelters and services in your specific area — call or chat any time:
+              </p>
+              <a
+                href="tel:18007997233"
+                className="mt-2 inline-flex items-center gap-1.5 text-brand-600 font-semibold text-sm hover:underline"
+              >
+                1-800-799-7233
+              </a>
+              <span className="text-xs text-gray-400 ml-2">or chat at thehotline.org</span>
+            </div>
+          )}
+        </div>
       </NavShell>
     </>
   );

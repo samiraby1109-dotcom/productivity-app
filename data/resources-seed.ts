@@ -109,3 +109,35 @@ export function getResourcesByZip(zip: string): Resource[] {
   const national = RESOURCES.filter((r) => r.national);
   return [...national, ...local];
 }
+
+export type ZipSearchResult = {
+  national: Resource[];
+  local: Resource[];
+  /** "exact" = ZIP matched directly; "nearby" = matched on 3-digit prefix; "none" = no local match */
+  matchType: "exact" | "nearby" | "none";
+};
+
+/**
+ * Search resources with two-level fallback:
+ * 1. Exact ZIP match
+ * 2. Same 3-digit SCF prefix (covers neighboring ZIP codes in the same metro area)
+ * 3. National-only with a suggestion to call the hotline for local referrals
+ */
+export function searchByZip(zip: string): ZipSearchResult {
+  const national = RESOURCES.filter((r) => r.national);
+
+  // Level 1: exact match
+  const exact = RESOURCES.filter((r) => !r.national && r.zip_codes?.includes(zip));
+  if (exact.length > 0) return { national, local: exact, matchType: "exact" };
+
+  // Level 2: same 3-digit prefix (e.g., "641" covers all KC north-side ZIPs)
+  if (zip.length >= 3) {
+    const prefix = zip.slice(0, 3);
+    const nearby = RESOURCES.filter(
+      (r) => !r.national && r.zip_codes?.some((z) => z.startsWith(prefix))
+    );
+    if (nearby.length > 0) return { national, local: nearby, matchType: "nearby" };
+  }
+
+  return { national, local: [], matchType: "none" };
+}
