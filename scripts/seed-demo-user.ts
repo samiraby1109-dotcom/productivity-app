@@ -39,7 +39,7 @@ function generatePasswordSalt(): string {
 async function main() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const sessionSecret = process.env.SESSION_SECRET ?? "dev-secret-32-chars-replace-in-prod!!";
+  const sessionSecret = process.env.SESSION_SECRET ?? "dev-secret";
 
   if (!url || !serviceKey || url.includes("placeholder")) {
     console.log("⚠  No Supabase credentials found. Skipping live seed.");
