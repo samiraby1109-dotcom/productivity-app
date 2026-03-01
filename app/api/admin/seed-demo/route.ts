@@ -6,17 +6,24 @@ import { promisify } from "util";
 const pbkdf2Async = promisify(nodePbkdf2);
 
 /**
- * POST /api/admin/seed-demo
+ * POST /api/admin/seed-demo  — via curl with Authorization: Bearer <CRON_SECRET>
+ * GET  /api/admin/seed-demo?secret=<CRON_SECRET>  — browser-friendly
+ *
  * Creates (or re-creates) the demo user using the live SESSION_SECRET so the
  * decoy code hash matches exactly what the login route expects.
- *
- * Protected by CRON_SECRET — callers must send:
- *   Authorization: Bearer <CRON_SECRET>
- *
- * Usage after deploy:
- *   curl -X POST https://your-app.vercel.app/api/admin/seed-demo \
- *        -H "Authorization: Bearer YOUR_CRON_SECRET"
  */
+export async function GET(req: NextRequest) {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    return Response.json({ error: "CRON_SECRET not configured" }, { status: 503 });
+  }
+  const secret = req.nextUrl.searchParams.get("secret") ?? "";
+  if (secret !== cronSecret) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  return runSeed();
+}
+
 export async function POST(req: NextRequest) {
   // Auth guard
   const cronSecret = process.env.CRON_SECRET;
@@ -27,7 +34,10 @@ export async function POST(req: NextRequest) {
   if (authHeader !== `Bearer ${cronSecret}`) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
+  return runSeed();
+}
 
+async function runSeed() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const sessionSecret = process.env.SESSION_SECRET ?? "dev-secret";
