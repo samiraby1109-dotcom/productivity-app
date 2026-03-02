@@ -41,6 +41,18 @@ const EMPTY_FILTERS: FilterState = {
   attachments: null, types: [], status: "ACTIVE",
 };
 
+/** Detect image format from magic bytes — works regardless of stored MIME type. */
+function detectImageFormat(buf: ArrayBuffer): { mime: string; ext: "JPEG" | "PNG" } | null {
+  const bytes = new Uint8Array(buf, 0, 4);
+  if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) {
+    return { mime: "image/jpeg", ext: "JPEG" };
+  }
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) {
+    return { mime: "image/png", ext: "PNG" };
+  }
+  return null; // HEIC, WEBP, or other format jsPDF can't embed
+}
+
 /** Convert an ArrayBuffer to base64 without spread (safe for large images). */
 function arrayBufferToBase64(buf: ArrayBuffer): string {
   const bytes = new Uint8Array(buf);
@@ -249,21 +261,32 @@ export default function ExportClient({ mode, email, passwordSalt }: Props) {
 
           try {
             const plain = await decryptMediaItem(m, vaultKey);
-            const ext = m.mime_type.includes("png") ? "PNG" : "JPEG";
-            const b64 = arrayBufferToBase64(plain);
-            const dataUrl = `data:${m.mime_type};base64,${b64}`;
 
-            doc.text(`Image attachment (${m.mime_type}, ${(m.size_bytes / 1024).toFixed(0)} KB)`, 40, 54);
+            // Detect format from magic bytes — works even if stored MIME type is wrong
+            const fmt = detectImageFormat(plain);
+            if (!fmt) {
+              doc.text(`[Image format not supported in PDF — retrieve via ZIP export]`, 40, 56);
+              continue;
+            }
+
+            const b64 = arrayBufferToBase64(plain);
+            const dataUrl = `data:${fmt.mime};base64,${b64}`;
+
+            doc.text(`Image attachment (${(m.size_bytes / 1024).toFixed(0)} KB)`, 40, 54);
 
             // Fit image in page (letter 612×792pt, 40pt margins)
             const maxW = 532;
             const maxH = 660;
             const img = new Image();
-            await new Promise<void>((resolve) => { img.onload = () => resolve(); img.src = dataUrl; });
+            await new Promise<void>((resolve, reject) => {
+              img.onload = () => resolve();
+              img.onerror = () => reject(new Error("Image load failed"));
+              img.src = dataUrl;
+            });
             const ratio = Math.min(maxW / img.width, maxH / img.height, 1);
-            doc.addImage(dataUrl, ext, 40, 68, img.width * ratio, img.height * ratio);
+            doc.addImage(dataUrl, fmt.ext, 40, 68, img.width * ratio, img.height * ratio);
           } catch {
-            doc.text(`[Image decryption failed — ID: ${m.id}]`, 40, 56);
+            doc.text(`[Image could not be embedded — retrieve via ZIP export]`, 40, 56);
           }
         }
       }
@@ -295,10 +318,13 @@ export default function ExportClient({ mode, email, passwordSalt }: Props) {
         for (const m of mediaMap[entry.id] ?? []) {
           count++;
           setProgress(`Decrypting attachment ${count} of ${total}…`);
-          const ext = m.mime_type.split("/")[1]?.split(";")[0] ?? "bin";
-          const filename = `media/${entry.id}/${m.id}.${ext}`;
           try {
             const plain = await decryptMediaItem(m, vaultKey);
+            const fmt = m.kind === "IMAGE" ? detectImageFormat(plain) : null;
+            const ext = fmt
+              ? (fmt.ext === "PNG" ? "png" : "jpg")
+              : (m.mime_type.split("/")[1]?.split(";")[0] ?? "bin");
+            const filename = `media/${entry.id}/${m.id}.${ext}`;
             zip.file(filename, plain);
             mediaFileList.push(`${filename} (${m.kind}, ${(m.size_bytes / 1024).toFixed(0)} KB)`);
           } catch {

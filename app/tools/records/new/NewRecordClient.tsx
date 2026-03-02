@@ -108,6 +108,7 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
       const fd = new FormData();
       fd.append("entryId", entryId);
       fd.append("kind", kind);
+      fd.append("mimeType", file.type);
       fd.append("wrappedKey", wrapped.wrappedKey);
       fd.append("wrappedKeyIv", wrapped.iv);
       fd.append("file", encBlob, file.name);

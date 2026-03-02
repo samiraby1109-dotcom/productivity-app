@@ -29,6 +29,7 @@ export async function POST(req: NextRequest) {
 
     const entryId = formData.get("entryId") as string;
     const kind = formData.get("kind") as MediaKind;
+    const mimeType = formData.get("mimeType") as string | null;
     const wrappedKey = formData.get("wrappedKey") as string;
     const wrappedKeyIv = formData.get("wrappedKeyIv") as string;
     const file = formData.get("file") as File;
@@ -82,7 +83,7 @@ export async function POST(req: NextRequest) {
         entry_id: entryId,
         user_id: session.userId,
         kind,
-        mime_type: file.type || "application/octet-stream",
+        mime_type: mimeType || file.type || "application/octet-stream",
         size_bytes: file.size,
         storage_path: storagePath,
         encrypted_media_key: wrappedKey,
