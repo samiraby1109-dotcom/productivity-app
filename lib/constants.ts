@@ -16,6 +16,7 @@ export const FULL_ALLOWED_PREFIXES = [
   "/api/archive",
   "/api/media",
   "/api/export",
+  "/api/contacts",
 ];
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────

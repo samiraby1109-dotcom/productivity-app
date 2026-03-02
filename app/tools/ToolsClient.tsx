@@ -11,6 +11,7 @@ interface Props {
 
 const TOOLS = [
   { href: "/tools/records", icon: "📋", label: "Records", desc: "View and add entries" },
+  { href: "/tools/contacts", icon: "👤", label: "Contacts", desc: "Advocates, attorneys & trusted people" },
   { href: "/tools/archive", icon: "🗂", label: "Archive", desc: "Removed entries" },
   { href: "/tools/resources", icon: "📚", label: "Resources", desc: "Local support services" },
   { href: "/tools/safety", icon: "🛡", label: "Safety Plan", desc: "Planning ahead" },
