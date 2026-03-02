@@ -4,12 +4,15 @@ import { requireFullSession, apiError } from "@/lib/server-session";
 /**
  * GET /api/resources?zip=64118
  *
- * Proxies to the 211 National Data Platform API to find local DV services.
- * Requires RESOURCES_API_KEY env var (free — register at https://apiportal.211.org).
+ * Proxies to the 211 National Data Platform Search V2 API.
+ * Requires RESOURCES_API_KEY env var — subscribe to "Search V2" (free) at
+ * https://apiportal.211.org, then copy the Primary or Secondary key from
+ * your Profile page.
  *
- * If the key is absent the route returns { source: "static" } and the client
- * falls back to the hardcoded KC resource list so the app still works during
- * development or before the key is configured.
+ * Auth: Azure APIM subscription key (Ocp-Apim-Subscription-Key header).
+ *
+ * If the key is absent, returns { source: "static" } so the client falls
+ * back to the hardcoded KC shelter list — nothing breaks.
  */
 
 export interface LiveResource {
@@ -22,8 +25,6 @@ export interface LiveResource {
   distance_miles: number | null;
 }
 
-// 211 HSDS-standard response — field names vary slightly across implementations
-// so we try multiple candidates for each field.
 function extractString(obj: Record<string, unknown>, ...keys: string[]): string {
   for (const k of keys) {
     const v = obj[k];
@@ -33,7 +34,6 @@ function extractString(obj: Record<string, unknown>, ...keys: string[]): string 
 }
 
 function parsePhone(obj: Record<string, unknown>): string {
-  // phones may be an array of { number } objects, or a flat string
   const phones = obj.phones ?? obj.phone_numbers;
   if (Array.isArray(phones) && phones.length > 0) {
     const first = phones[0] as Record<string, unknown>;
@@ -43,9 +43,12 @@ function parsePhone(obj: Record<string, unknown>): string {
 }
 
 function parseAddress(obj: Record<string, unknown>): string {
-  // address may be nested or flat
-  const addrObj = (obj.address ?? obj.location ?? obj.physical_address ?? {}) as Record<string, unknown>;
-  const line1 = extractString(addrObj, "address_1", "address1", "street", "street_address", "line1");
+  // Search V2 nests address under location.physical_address
+  const loc = (obj.location ?? {}) as Record<string, unknown>;
+  const addrObj = (
+    loc.physical_address ?? obj.address ?? obj.physical_address ?? obj.location ?? {}
+  ) as Record<string, unknown>;
+  const line1 = extractString(addrObj, "address_1", "address1", "street", "street_address");
   const city  = extractString(addrObj, "city");
   const state = extractString(addrObj, "state_province", "state", "region");
   const zip   = extractString(addrObj, "postal_code", "zip", "zipcode");
@@ -53,56 +56,77 @@ function parseAddress(obj: Record<string, unknown>): string {
 }
 
 function normalizeResult(r: Record<string, unknown>): LiveResource {
+  // Search V2: service name nested under r.service.name; org under r.organization.name
+  const service = (r.service ?? {}) as Record<string, unknown>;
+  const org     = (r.organization ?? {}) as Record<string, unknown>;
+
+  const name = extractString(service, "name", "service_name")
+    || extractString(org, "name", "organization_name")
+    || extractString(r, "service_name", "organization_name", "name", "program_name");
+
+  const description = extractString(service, "description", "short_description")
+    || extractString(r, "description", "short_description", "summary");
+
+  const website = extractString(service, "url", "website")
+    || extractString(org, "url", "website")
+    || extractString(r, "website", "url", "web_address");
+
   return {
     id:            extractString(r, "id", "resource_id"),
-    name:          extractString(r, "service_name", "organization_name", "name", "program_name", "agency_name"),
+    name,
     phone:         parsePhone(r),
     address:       parseAddress(r),
-    description:   extractString(r, "description", "short_description", "summary", "service_description"),
-    website:       extractString(r, "website", "url", "web_address"),
+    description,
+    website,
     distance_miles: typeof r.distance === "number" ? r.distance : null,
   };
 }
 
 async function query211(zip: string, keyword: string, apiKey: string): Promise<LiveResource[]> {
-  const url = new URL("https://api.211.org/search");
-  url.searchParams.set("query", keyword);
-  url.searchParams.set("location", zip);
-  url.searchParams.set("distance", "30");
-  url.searchParams.set("per_page", "20");
+  // Try Search V2 endpoint candidates; continue on 404 to find the right one
+  const endpoints = [
+    "https://api.211.org/search/v2",
+    "https://api.211.org/api/search/v2",
+    "https://api.211.org/search",
+  ];
 
-  const res = await fetch(url.toString(), {
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      Accept: "application/json",
-    },
-    // 8 second timeout
-    signal: AbortSignal.timeout(8000),
-  });
+  for (const base of endpoints) {
+    const url = new URL(base);
+    url.searchParams.set("query", keyword);
+    url.searchParams.set("location", zip);
+    url.searchParams.set("distance", "30");
+    url.searchParams.set("per_page", "20");
 
-  if (!res.ok) {
+    const res = await fetch(url.toString(), {
+      headers: {
+        // Azure APIM subscription key (apiportal.211.org)
+        "Ocp-Apim-Subscription-Key": apiKey,
+        // Also include Bearer in case auth model differs
+        Authorization: `Bearer ${apiKey}`,
+        Accept: "application/json",
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+
+    if (res.status === 404) continue;
     if (res.status === 401 || res.status === 403) throw new Error("invalid_key");
-    if (res.status === 404) return []; // no results
-    throw new Error(`211 API error: ${res.status}`);
+    if (!res.ok) throw new Error(`211 API error: ${res.status}`);
+
+    const body = await res.json() as Record<string, unknown>;
+
+    let items: unknown[] = [];
+    if (Array.isArray(body))              items = body;
+    else if (Array.isArray(body.results)) items = body.results as unknown[];
+    else if (Array.isArray(body.data))    items = body.data as unknown[];
+    else if (Array.isArray(body.services))items = body.services as unknown[];
+    else if (Array.isArray(body.records)) items = body.records as unknown[];
+
+    return items
+      .map((r) => normalizeResult(r as Record<string, unknown>))
+      .filter((r) => r.name);
   }
 
-  const body = await res.json() as Record<string, unknown>;
-
-  // Response may be { results: [...] } or { data: [...] } or a bare array
-  let items: unknown[] = [];
-  if (Array.isArray(body)) {
-    items = body;
-  } else if (Array.isArray(body.results)) {
-    items = body.results as unknown[];
-  } else if (Array.isArray(body.data)) {
-    items = body.data as unknown[];
-  } else if (Array.isArray(body.services)) {
-    items = body.services as unknown[];
-  }
-
-  return items
-    .map((r) => normalizeResult(r as Record<string, unknown>))
-    .filter((r) => r.name); // drop results with no name
+  return [];
 }
 
 export async function GET(req: NextRequest) {
@@ -113,30 +137,21 @@ export async function GET(req: NextRequest) {
     if (!zip || zip.length < 5) return apiError(400, "Valid 5-digit ZIP required");
 
     const apiKey = process.env.RESOURCES_API_KEY;
+    if (!apiKey) return Response.json({ source: "static" });
 
-    // No API key configured — tell the client to use the static fallback
-    if (!apiKey) {
-      return Response.json({ source: "static" });
-    }
-
-    // Try specific keyword first, then broader fallback
+    // Progressively broader search terms
     let results = await query211(zip, "domestic violence shelter", apiKey);
-    if (results.length === 0) {
-      results = await query211(zip, "domestic violence", apiKey);
-    }
-    if (results.length === 0) {
-      results = await query211(zip, "intimate partner violence shelter", apiKey);
-    }
+    if (results.length === 0) results = await query211(zip, "domestic violence", apiKey);
+    if (results.length === 0) results = await query211(zip, "intimate partner violence", apiKey);
 
     return Response.json({ source: "live", zip, results });
 
   } catch (err: unknown) {
     if (err instanceof Error) {
       if (err.message === "Unauthorized") return apiError(401, "Unauthorized");
-      if (err.message === "invalid_key") return apiError(500, "API key invalid or expired");
+      if (err.message === "invalid_key")  return apiError(500, "API key invalid or expired");
     }
     console.error("[/api/resources]", err);
-    // On any failure fall back gracefully — client will show static list
     return Response.json({ source: "static" });
   }
 }
