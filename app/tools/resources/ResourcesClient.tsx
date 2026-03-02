@@ -64,48 +64,34 @@ export default function ResourcesClient({ mode, email, passwordSalt }: Props) {
             {NATIONAL.map((r) => <StaticCard key={r.name} resource={r} />)}
           </div>
 
-          {/* DomesticShelters.org live search — shown after any ZIP is entered */}
+          {/* DomesticShelters.org link card — shown after any ZIP is entered */}
           {searchedZip && (
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Local services near {searchedZip}
-                </p>
-                <a
-                  href={`https://www.domesticshelters.org/search?q=${searchedZip}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-brand-500 hover:underline flex items-center gap-1"
-                >
-                  Open full results
-                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" /></svg>
-                </a>
-              </div>
-
-              <div className="rounded-xl overflow-hidden border border-gray-100">
-                <iframe
-                  key={searchedZip}
-                  src={`https://www.domesticshelters.org/search?q=${searchedZip}`}
-                  title={`Local DV services near ${searchedZip}`}
-                  width="100%"
-                  height="520"
-                  style={{ border: "none", display: "block" }}
-                  loading="lazy"
-                />
-              </div>
-
-              <p className="text-xs text-gray-400 text-center">
-                Results provided by{" "}
-                <a
-                  href="https://www.domesticshelters.org"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline hover:text-gray-600"
-                >
-                  DomesticShelters.org
-                </a>
-                {" "}— 3,300+ programs nationwide.
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Local services near {searchedZip}
               </p>
+
+              <a
+                href={`https://www.domesticshelters.org/search?q=${searchedZip}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between gap-4 bg-brand-50 border border-brand-100 rounded-xl p-4 hover:bg-brand-100 transition-colors group"
+              >
+                <div>
+                  <p className="text-sm font-semibold text-brand-800">
+                    Find shelters near {searchedZip}
+                  </p>
+                  <p className="text-xs text-brand-600 mt-0.5">
+                    3,300+ DV programs nationwide · DomesticShelters.org
+                  </p>
+                </div>
+                <svg
+                  className="w-5 h-5 text-brand-500 flex-shrink-0 group-hover:translate-x-0.5 transition-transform"
+                  viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
+                >
+                  <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" />
+                </svg>
+              </a>
             </div>
           )}
 
