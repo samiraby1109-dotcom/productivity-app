@@ -3,7 +3,6 @@ import { useState } from "react";
 import NavShell from "@/components/NavShell";
 import IdleLock from "@/components/IdleLock";
 import { RESOURCES, searchByZip, type Resource } from "@/data/resources-seed";
-import type { LiveResource } from "@/app/api/resources/route";
 
 interface Props {
   mode: "FULL" | "DECOY";
@@ -11,53 +10,19 @@ interface Props {
   passwordSalt: string;
 }
 
-type SearchState =
-  | { status: "idle" }
-  | { status: "loading" }
-  | { status: "live"; zip: string; results: LiveResource[] }
-  | { status: "static"; zip: string; local: Resource[]; matchType: "exact" | "nearby" | "none" }
-  | { status: "error"; message: string };
-
 const NATIONAL = RESOURCES.filter((r) => r.national);
 
 export default function ResourcesClient({ mode, email, passwordSalt }: Props) {
   const [zip, setZip] = useState("");
-  const [search, setSearch] = useState<SearchState>({ status: "idle" });
+  const [searchedZip, setSearchedZip] = useState("");
 
-  async function handleSearch(e: React.FormEvent) {
+  function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     const clean = zip.trim().replace(/\D/g, "").slice(0, 5);
-    if (!clean || clean.length < 5) return;
-
-    setSearch({ status: "loading" });
-
-    try {
-      const res = await fetch(`/api/resources?zip=${clean}`);
-      const body = await res.json() as
-        | { source: "live"; zip: string; results: LiveResource[] }
-        | { source: "static" }
-        | { error: string };
-
-      if ("error" in body) {
-        // Server error — fall back to static
-        const fallback = searchByZip(clean);
-        setSearch({ status: "static", zip: clean, local: fallback.local, matchType: fallback.matchType });
-        return;
-      }
-
-      if (body.source === "live") {
-        setSearch({ status: "live", zip: clean, results: body.results });
-      } else {
-        // API key not configured — use static list
-        const fallback = searchByZip(clean);
-        setSearch({ status: "static", zip: clean, local: fallback.local, matchType: fallback.matchType });
-      }
-    } catch {
-      // Network error — use static list
-      const fallback = searchByZip(clean);
-      setSearch({ status: "static", zip: clean, local: fallback.local, matchType: fallback.matchType });
-    }
+    if (clean.length === 5) setSearchedZip(clean);
   }
+
+  const staticResults = searchedZip ? searchByZip(searchedZip) : null;
 
   return (
     <>
@@ -69,6 +34,7 @@ export default function ResourcesClient({ mode, email, passwordSalt }: Props) {
           Your location is never stored.
         </p>
 
+        {/* Search bar */}
         <form onSubmit={handleSearch} className="flex gap-2 mb-6">
           <input
             type="tel"
@@ -81,10 +47,10 @@ export default function ResourcesClient({ mode, email, passwordSalt }: Props) {
           />
           <button
             type="submit"
-            disabled={zip.length < 5 || search.status === "loading"}
+            disabled={zip.length < 5}
             className="px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 disabled:opacity-50 transition-colors"
           >
-            {search.status === "loading" ? "Searching…" : "Search"}
+            Search
           </button>
         </form>
 
@@ -98,119 +64,64 @@ export default function ResourcesClient({ mode, email, passwordSalt }: Props) {
             {NATIONAL.map((r) => <StaticCard key={r.name} resource={r} />)}
           </div>
 
-          {/* Loading */}
-          {search.status === "loading" && (
-            <p className="text-sm text-gray-400 text-center py-4">Searching for local services…</p>
-          )}
-
-          {/* Live results from 211 API */}
-          {search.status === "live" && (
+          {/* DomesticShelters.org live search — shown after any ZIP is entered */}
+          {searchedZip && (
             <div className="space-y-3">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Near {search.zip}
-                <span className="ml-2 font-normal normal-case text-gray-400">
-                  {search.results.length} local service{search.results.length !== 1 ? "s" : ""} found
-                </span>
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Local services near {searchedZip}
+                </p>
+                <a
+                  href={`https://www.domesticshelters.org/search?q=${searchedZip}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-brand-500 hover:underline flex items-center gap-1"
+                >
+                  Open full results
+                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" /></svg>
+                </a>
+              </div>
 
-              {search.results.length === 0 ? (
-                <NoLocalResults zip={search.zip} />
-              ) : (
-                search.results.map((r) => <LiveCard key={r.id} resource={r} />)
-              )}
+              <div className="rounded-xl overflow-hidden border border-gray-100">
+                <iframe
+                  key={searchedZip}
+                  src={`https://www.domesticshelters.org/search?q=${searchedZip}`}
+                  title={`Local DV services near ${searchedZip}`}
+                  width="100%"
+                  height="520"
+                  style={{ border: "none", display: "block" }}
+                  loading="lazy"
+                />
+              </div>
+
+              <p className="text-xs text-gray-400 text-center">
+                Results provided by{" "}
+                <a
+                  href="https://www.domesticshelters.org"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-gray-600"
+                >
+                  DomesticShelters.org
+                </a>
+                {" "}— 3,300+ programs nationwide.
+              </p>
             </div>
           )}
 
-          {/* Static fallback results */}
-          {search.status === "static" && (
+          {/* KC-area hardcoded shelters — shown as bonus when ZIP matches */}
+          {staticResults && staticResults.local.length > 0 && (
             <div className="space-y-3">
-              {search.local.length > 0 ? (
-                <>
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    {search.matchType === "exact" ? `Near ${search.zip}` : `Nearest to ${search.zip}`}
-                  </p>
-                  {search.matchType === "nearby" && (
-                    <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-                      No listings found exactly at {search.zip} — showing the closest available services.
-                    </p>
-                  )}
-                  {search.local.map((r) => <StaticCard key={r.name} resource={r} />)}
-                </>
-              ) : (
-                <NoLocalResults zip={search.zip} />
-              )}
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Also near {searchedZip}
+              </p>
+              {staticResults.local.map((r) => <StaticCard key={r.name} resource={r} />)}
             </div>
           )}
 
         </div>
       </NavShell>
     </>
-  );
-}
-
-function NoLocalResults({ zip }: { zip: string }) {
-  return (
-    <div className="bg-gray-50 border border-gray-100 rounded-xl p-4">
-      <p className="text-sm font-medium text-gray-700 mb-1">No local listings found for {zip}</p>
-      <p className="text-sm text-gray-600 leading-relaxed mb-2">
-        The National Support Line can connect you with shelters and services in your area — free, 24/7, confidential:
-      </p>
-      <div className="flex flex-wrap items-center gap-3">
-        <a href="tel:18007997233" className="text-brand-600 font-semibold text-sm hover:underline">
-          1-800-799-7233
-        </a>
-        <span className="text-xs text-gray-400">or text START to 88788</span>
-        <a
-          href="https://www.thehotline.org"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs text-brand-500 hover:underline"
-        >
-          thehotline.org
-        </a>
-      </div>
-    </div>
-  );
-}
-
-function LiveCard({ resource }: { resource: LiveResource }) {
-  return (
-    <div className="bg-white rounded-xl border border-gray-100 p-4">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="font-medium text-gray-900 text-sm">{resource.name}</p>
-          {resource.phone && (
-            <a
-              href={`tel:${resource.phone.replace(/\D/g, "")}`}
-              className="text-brand-600 text-sm font-medium mt-0.5 block hover:underline"
-            >
-              {resource.phone}
-            </a>
-          )}
-          {resource.address && (
-            <p className="text-xs text-gray-400 mt-0.5">{resource.address}</p>
-          )}
-          {resource.description && (
-            <p className="text-xs text-gray-500 mt-1 leading-relaxed line-clamp-3">{resource.description}</p>
-          )}
-          {resource.website && (
-            <a
-              href={resource.website.startsWith("http") ? resource.website : `https://${resource.website}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-brand-500 hover:underline mt-1 block"
-            >
-              {resource.website.replace(/^https?:\/\//, "")}
-            </a>
-          )}
-        </div>
-        {resource.distance_miles !== null && (
-          <span className="flex-shrink-0 text-xs text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full whitespace-nowrap">
-            {resource.distance_miles.toFixed(1)} mi
-          </span>
-        )}
-      </div>
-    </div>
   );
 }
 
