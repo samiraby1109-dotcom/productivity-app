@@ -134,6 +134,36 @@ export interface Database {
         };
         Relationships: Relationship[];
       };
+      vault_contacts: {
+        Row: {
+          id: string;
+          user_id: string;
+          created_at: string;
+          updated_at: string;
+          relationship: string;
+          encrypted_payload: string;
+          payload_version: number;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          created_at?: string;
+          updated_at?: string;
+          relationship?: string;
+          encrypted_payload: string;
+          payload_version?: number;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          created_at?: string;
+          updated_at?: string;
+          relationship?: string;
+          encrypted_payload?: string;
+          payload_version?: number;
+        };
+        Relationships: Relationship[];
+      };
       archive_queue: {
         Row: {
           entry_id: string;

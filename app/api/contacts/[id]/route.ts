@@ -26,7 +26,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
     if (!existing) return apiError(404, "Not found");
 
-    const update: Record<string, unknown> = {};
+    const update: { encrypted_payload?: string; relationship?: string } = {};
     if (body.encryptedPayload !== undefined) update.encrypted_payload = body.encryptedPayload;
     if (body.relationship !== undefined) update.relationship = body.relationship.trim().slice(0, 100);
 
