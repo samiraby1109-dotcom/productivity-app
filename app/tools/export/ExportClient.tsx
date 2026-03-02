@@ -328,7 +328,7 @@ export default function ExportClient({ mode, email, passwordSalt }: Props) {
             zip.file(filename, plain);
             mediaFileList.push(`${filename} (${m.kind}, ${(m.size_bytes / 1024).toFixed(0)} KB)`);
           } catch {
-            mediaFileList.push(`${filename} — DECRYPTION FAILED`);
+            mediaFileList.push(`media/${entry.id}/${m.id} — DECRYPTION FAILED`);
           }
         }
       }
