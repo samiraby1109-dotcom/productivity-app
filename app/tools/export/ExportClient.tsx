@@ -41,6 +41,17 @@ const EMPTY_FILTERS: FilterState = {
   attachments: null, types: [], status: "ACTIVE",
 };
 
+/** Convert an ArrayBuffer to base64 without spread (safe for large images). */
+function arrayBufferToBase64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  const CHUNK = 32768;
+  const parts: string[] = [];
+  for (let i = 0; i < bytes.byteLength; i += CHUNK) {
+    parts.push(String.fromCharCode(...bytes.subarray(i, i + CHUNK)));
+  }
+  return btoa(parts.join(""));
+}
+
 async function decryptMediaItem(media: MediaMeta, vaultKey: CryptoKey): Promise<ArrayBuffer> {
   const sigRes = await fetch("/api/media/signed-url", {
     method: "POST",
@@ -239,7 +250,7 @@ export default function ExportClient({ mode, email, passwordSalt }: Props) {
           try {
             const plain = await decryptMediaItem(m, vaultKey);
             const ext = m.mime_type.includes("png") ? "PNG" : "JPEG";
-            const b64 = btoa(String.fromCharCode(...new Uint8Array(plain)));
+            const b64 = arrayBufferToBase64(plain);
             const dataUrl = `data:${m.mime_type};base64,${b64}`;
 
             doc.text(`Image attachment (${m.mime_type}, ${(m.size_bytes / 1024).toFixed(0)} KB)`, 40, 54);

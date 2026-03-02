@@ -20,7 +20,7 @@ const nextConfig: NextConfig = {
             "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
             "font-src 'self'",
             "object-src 'none'",
-            "frame-src https://www.domesticshelters.org",
+            "frame-src 'none'",
             "base-uri 'self'",
             "form-action 'self'",
           ].join("; "),
