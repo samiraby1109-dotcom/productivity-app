@@ -83,7 +83,7 @@ function normalizeResult(r: Record<string, unknown>): LiveResource {
 }
 
 async function query211(zip: string, keyword: string, apiKey: string): Promise<LiveResource[]> {
-  // Try Search V2 endpoint candidates; continue on 404 to find the right one
+  // Search V2 is a POST endpoint with a JSON body
   const endpoints = [
     "https://api.211.org/search/v2",
     "https://api.211.org/api/search/v2",
@@ -91,20 +91,20 @@ async function query211(zip: string, keyword: string, apiKey: string): Promise<L
   ];
 
   for (const base of endpoints) {
-    const url = new URL(base);
-    url.searchParams.set("query", keyword);
-    url.searchParams.set("location", zip);
-    url.searchParams.set("distance", "30");
-    url.searchParams.set("per_page", "20");
-
-    const res = await fetch(url.toString(), {
+    const res = await fetch(base, {
+      method: "POST",
       headers: {
-        // Azure APIM subscription key (apiportal.211.org)
         "Ocp-Apim-Subscription-Key": apiKey,
-        // Also include Bearer in case auth model differs
         Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
         Accept: "application/json",
       },
+      body: JSON.stringify({
+        query: keyword,
+        location: zip,
+        distance: 30,
+        per_page: 20,
+      }),
       signal: AbortSignal.timeout(8000),
     });
 
