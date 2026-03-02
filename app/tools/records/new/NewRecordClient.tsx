@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import NavShell from "@/components/NavShell";
 import IdleLock from "@/components/IdleLock";
+import TrustedContactNudgeModal from "@/components/TrustedContactNudgeModal";
 import { INCIDENT_TYPES, type IncidentTypeKey } from "@/lib/constants";
 import { encryptPayload, getVaultKey } from "@/lib/crypto";
 import { generateFileKey, wrapFileKey, encryptFile } from "@/lib/crypto";
@@ -25,6 +26,7 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
   const [files, setFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [nudgeCount, setNudgeCount] = useState<number | null>(null);
 
   function toggleType(key: IncidentTypeKey) {
     setIncidentTypes((prev) =>
@@ -73,13 +75,19 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
         return;
       }
 
-      const { id: entryId } = await res.json();
+      const { id: entryId, totalCount } = await res.json();
 
       // Encrypt and upload attachments
       if (files.length > 0) {
         for (const file of files) {
           await uploadFile(file, entryId, vaultKey);
         }
+      }
+
+      // Show trusted-contact nudge at every 10th entry
+      if (typeof totalCount === "number" && totalCount > 0 && totalCount % 10 === 0) {
+        setNudgeCount(totalCount);
+        return; // hold navigation until user dismisses
       }
 
       router.replace("/tools/records");
@@ -138,6 +146,13 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
 
   return (
     <>
+      {nudgeCount !== null && (
+        <TrustedContactNudgeModal
+          title={`${nudgeCount} entries logged`}
+          message="You've built a strong record. Consider adding a trusted contact — someone who can help you access this if you ever need it."
+          onDismiss={() => router.replace("/tools/records")}
+        />
+      )}
       <IdleLock mode={mode} email={email} passwordSalt={passwordSalt} />
       <NavShell mode={mode}>
         <div className="flex items-center gap-3 mb-6">

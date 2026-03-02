@@ -78,7 +78,7 @@ export default function OnboardingPage() {
         }
       }
 
-      router.replace("/dashboard");
+      router.replace("/dashboard?welcome=1");
     } catch {
       setError("Something went wrong. Please try again.");
       setLoading(false);

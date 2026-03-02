@@ -1,8 +1,10 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { v4 as uuidv4 } from "uuid";
 import NavShell from "@/components/NavShell";
 import IdleLock from "@/components/IdleLock";
+import TrustedContactNudgeModal from "@/components/TrustedContactNudgeModal";
 import {
   getTrackerData,
   saveTrackerData,
@@ -26,12 +28,15 @@ interface Props {
   mode: "FULL" | "DECOY";
   email: string;
   passwordSalt: string;
+  showWelcomeNudge?: boolean;
 }
 
-export default function DashboardClient({ mode, email, passwordSalt }: Props) {
+export default function DashboardClient({ mode, email, passwordSalt, showWelcomeNudge = false }: Props) {
+  const router = useRouter();
   const [data, setData] = useState<TrackerData>(DEFAULT_DATA);
   const [newTask, setNewTask] = useState("");
   const [loaded, setLoaded] = useState(false);
+  const [showNudge, setShowNudge] = useState(showWelcomeNudge);
 
   // Load from IndexedDB
   useEffect(() => {
@@ -89,8 +94,21 @@ export default function DashboardClient({ mode, email, passwordSalt }: Props) {
 
   const completedCount = data.tasks.filter((t) => t.done).length;
 
+  function handleDismissNudge() {
+    setShowNudge(false);
+    // Remove ?welcome=1 from the URL without a page reload
+    router.replace("/dashboard", { scroll: false });
+  }
+
   return (
     <>
+      {showNudge && (
+        <TrustedContactNudgeModal
+          title="Add a trusted contact"
+          message="Consider adding someone you trust — a DV advocate, attorney, or close friend — so they can help you access your records if you ever need it."
+          onDismiss={handleDismissNudge}
+        />
+      )}
       <IdleLock mode={mode} email={email} passwordSalt={passwordSalt} />
       <NavShell mode={mode}>
         {/* Date heading */}

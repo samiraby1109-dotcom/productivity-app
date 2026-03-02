@@ -106,7 +106,14 @@ export async function POST(req: NextRequest) {
       return apiError(500, "Failed to create record");
     }
 
-    return Response.json({ id: data.id, created_at: data.created_at }, { status: 201 });
+    // Count active entries for milestone nudge (best-effort; non-fatal if it fails)
+    const { count } = await db
+      .from("vault_entries")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", session.userId)
+      .eq("status", "ACTIVE");
+
+    return Response.json({ id: data.id, created_at: data.created_at, totalCount: count ?? 0 }, { status: 201 });
   } catch (err: unknown) {
     if (err instanceof Error && err.message === "Unauthorized") return apiError(401, "Unauthorized");
     if (err instanceof Error && err.message === "Forbidden") return apiError(403, "Forbidden");
