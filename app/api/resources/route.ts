@@ -83,10 +83,10 @@ function normalizeResult(r: Record<string, unknown>): LiveResource {
 }
 
 async function query211(zip: string, keyword: string, apiKey: string): Promise<LiveResource[]> {
-  // Search V2 is a POST endpoint with a JSON body
+  // Search V2 POST — correct base URL confirmed from apiportal.211.org docs
   const endpoints = [
+    "https://api.211.org/resources/v2/search/keyword",
     "https://api.211.org/search/v2",
-    "https://api.211.org/api/search/v2",
     "https://api.211.org/search",
   ];
 
