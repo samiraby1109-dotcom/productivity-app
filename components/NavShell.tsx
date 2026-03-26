@@ -28,7 +28,7 @@ export default function NavShell({ mode, children, onLogout }: Props) {
       {/* Top bar */}
       <header className="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-40">
         <Link href="/dashboard" className="font-semibold text-gray-900 text-base">
-          Daybook
+          BelleMeadow Wellness
         </Link>
 
         <div className="flex items-center gap-3">

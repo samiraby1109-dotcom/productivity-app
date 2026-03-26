@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
     const res = Response.json({ ok: true, mode: "FULL" });
     res.headers.set(
       "Set-Cookie",
-      `daybook_session=${token}; Path=${options.path}; HttpOnly; SameSite=Strict; Max-Age=${options.maxAge}${options.secure ? "; Secure" : ""}`
+      `bellemeadow_wellness_session=${token}; Path=${options.path}; HttpOnly; SameSite=Strict; Max-Age=${options.maxAge}${options.secure ? "; Secure" : ""}`
     );
     return res;
   } catch (err) {

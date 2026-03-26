@@ -5,7 +5,7 @@
  */
 import { openDB, type IDBPDatabase } from "idb";
 
-const DB_NAME = "daybook_offline";
+const DB_NAME = "bellemeadow_wellness_offline";
 const DB_VERSION = 1;
 const STORE_QUEUE = "upload_queue";
 const STORE_TRACKER = "tracker_data";

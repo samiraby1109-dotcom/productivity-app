@@ -90,7 +90,7 @@ export default function OnboardingPage() {
       <div className="w-full max-w-sm">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Create your Daybook</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Create your BelleMeadow Wellness</h1>
           <div className="flex justify-center gap-2 mt-3">
             {(["account", "decoy", "disclosure"] as Step[]).map((s, i) => (
               <div

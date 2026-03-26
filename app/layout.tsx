@@ -3,7 +3,7 @@ import "./globals.css";
 import PwaRegistration from "@/components/PwaRegistration";
 
 export const metadata: Metadata = {
-  title: "Daybook — Daily Tracker",
+  title: "BelleMeadow Wellness — Daily Tracker",
   description: "A simple daily productivity tracker for tasks, notes, and habits.",
   manifest: "/manifest.json",
   themeColor: "#0ea5e9",
@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   // Deliberately neutral — no DV-related keywords
   keywords: ["productivity", "daily tracker", "tasks", "notes", "habits"],
   openGraph: {
-    title: "Daybook — Daily Tracker",
+    title: "BelleMeadow Wellness — Daily Tracker",
     description: "Track your daily tasks, notes, and habits.",
     type: "website",
   },
@@ -25,7 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="Daybook" />
+        <meta name="apple-mobile-web-app-title" content="BelleMeadow Wellness" />
       </head>
       <body>
         <PwaRegistration />

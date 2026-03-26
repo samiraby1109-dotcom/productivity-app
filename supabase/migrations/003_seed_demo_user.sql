@@ -4,7 +4,7 @@
 --   Email:         demo@tracker.local
 --   Password:      TrackerDemo2026
 --   Decoy Code:    2468
---   Hint:          "It's the demo password for Daybook"
+--   Hint:          "It's the demo password for BelleMeadow Wellness"
 --
 -- password_hash: PBKDF2(TrackerDemo2026, salt=demodevsal00000000000000, 200000, sha256)
 -- For actual hash generation, run: npm run seed
@@ -16,7 +16,7 @@ VALUES (
   '00000000-0000-0000-0000-000000000001',
   'demo@tracker.local',
   'SEED_VIA_SCRIPT', -- replaced by scripts/seed-demo-user.ts
-  'It''s the demo password for Daybook',
+  'It''s the demo password for BelleMeadow Wellness',
   'SEED_VIA_SCRIPT', -- replaced by scripts/seed-demo-user.ts
   'SEED_VIA_SCRIPT'  -- replaced by scripts/seed-demo-user.ts
 )

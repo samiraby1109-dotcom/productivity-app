@@ -1,6 +1,6 @@
 {
-  "name": "Daybook — Daily Tracker",
-  "short_name": "Daybook",
+  "name": "BelleMeadow Wellness — Daily Tracker",
+  "short_name": "BelleMeadow Wellness",
   "description": "A simple daily productivity tracker for tasks, notes, and habits.",
   "start_url": "/dashboard",
   "display": "standalone",

@@ -7,7 +7,7 @@ export default function LandingPage() {
     <main className="min-h-screen bg-white flex flex-col">
       {/* Nav */}
       <nav className="border-b border-gray-100 px-6 py-4 flex items-center justify-between">
-        <span className="font-semibold text-gray-900 text-lg tracking-tight">Daybook</span>
+        <span className="font-semibold text-gray-900 text-lg tracking-tight">BelleMeadow Wellness</span>
         <Link
           href="/login"
           className="text-sm font-medium text-brand-600 hover:text-brand-700 transition-colors"
@@ -73,7 +73,7 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="border-t border-gray-100 py-6 px-6 text-center text-xs text-gray-400">
-        <p>Daybook &copy; {new Date().getFullYear()} &mdash; A private productivity tracker.</p>
+        <p>BelleMeadow Wellness &copy; {new Date().getFullYear()} &mdash; A private productivity tracker.</p>
       </footer>
     </main>
   );
