@@ -49,7 +49,11 @@ export async function GET(req: NextRequest) {
 
     if (mediaRows && mediaRows.length > 0) {
       const paths = mediaRows.map((m) => m.storage_path);
-      await db.storage.from("vault-media").remove(paths);
+      const { error: storageError } = await db.storage.from("vault-media").remove(paths);
+      if (storageError) {
+        console.error("Purge: storage cleanup failed, aborting to prevent orphaned files:", storageError);
+        return apiError(500, "Storage cleanup failed; entries not purged. Will retry on next run.");
+      }
     }
 
     // Mark entries as PURGED (cascade deletes media rows via FK)

@@ -64,8 +64,15 @@ export async function POST(req: NextRequest) {
       query = query.overlaps("incident_types", filters.types);
     }
 
+    // Fetch one more than the cap to detect overflow without loading everything
+    query = query.limit(501);
+
     const { data: entries, error } = await query;
     if (error) return apiError(500, "Failed to fetch entries");
+
+    if ((entries ?? []).length > 500) {
+      return apiError(422, "Export exceeds 500 entries. Use a narrower date range and export in batches.");
+    }
 
     // Fetch media metadata for entries with attachments
     const entryIds = (entries ?? []).filter((e) => e.has_attachments).map((e) => e.id);

@@ -189,8 +189,13 @@ export interface Database {
         Relationships: Relationship[];
       };
     };
-    // Required by GenericSchema — empty since we have no views or functions
+    // Required by GenericSchema — empty since we have no views
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      increment_rate_limit: {
+        Args: { p_key: string; p_window_start: number };
+        Returns: number;
+      };
+    };
   };
 }

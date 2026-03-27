@@ -13,6 +13,9 @@ const pbkdf2Async = promisify(nodePbkdf2);
  * decoy code hash matches exactly what the login route expects.
  */
 export async function GET(req: NextRequest) {
+  if (process.env.NODE_ENV === "production") {
+    return Response.json({ error: "Not available in production" }, { status: 403 });
+  }
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
     return Response.json({ error: "CRON_SECRET not configured" }, { status: 503 });
@@ -25,6 +28,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  if (process.env.NODE_ENV === "production") {
+    return Response.json({ error: "Not available in production" }, { status: 403 });
+  }
   // Auth guard
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {

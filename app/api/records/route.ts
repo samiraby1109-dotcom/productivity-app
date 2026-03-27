@@ -10,9 +10,12 @@ export async function GET(req: NextRequest) {
     const db = createServiceClient();
     const params = req.nextUrl.searchParams;
 
+    const limit = Math.min(Math.max(parseInt(params.get("limit") ?? "50"), 1), 100);
+    const offset = Math.max(parseInt(params.get("offset") ?? "0"), 0);
+
     let query = db
       .from("vault_entries")
-      .select("id, created_at, updated_at, status, incident_types, flags_police, flags_children, flags_witness, has_attachments, encrypted_payload, payload_version")
+      .select("id, created_at, updated_at, status, incident_types, flags_police, flags_children, flags_witness, has_attachments, encrypted_payload, payload_version", { count: "exact" })
       .eq("user_id", session.userId)
       .neq("status", "PURGED")
       .order("created_at", { ascending: false });
@@ -48,13 +51,20 @@ export async function GET(req: NextRequest) {
       query = query.overlaps("incident_types", incidentTypes);
     }
 
-    const { data, error } = await query;
+    query = query.range(offset, offset + limit - 1);
+
+    const { data, error, count } = await query;
     if (error) {
       console.error("Records fetch error:", error);
       return apiError(500, "Failed to fetch records");
     }
 
-    return Response.json({ records: data ?? [] });
+    const total = count ?? 0;
+    return Response.json({
+      records: data ?? [],
+      total,
+      hasMore: offset + limit < total,
+    });
   } catch (err: unknown) {
     if (err instanceof Error && err.message === "Unauthorized") return apiError(401, "Unauthorized");
     if (err instanceof Error && err.message === "Forbidden") return apiError(403, "Forbidden");
