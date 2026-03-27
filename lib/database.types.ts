@@ -29,6 +29,7 @@ export interface Database {
           decoy_code_hash: string;
           password_salt: string;
           created_at: string;
+          email_verified_at: string | null;
         };
         Insert: {
           id?: string;
@@ -38,6 +39,7 @@ export interface Database {
           decoy_code_hash: string;
           password_salt: string;
           created_at?: string;
+          email_verified_at?: string | null;
         };
         Update: {
           id?: string;
@@ -47,6 +49,7 @@ export interface Database {
           decoy_code_hash?: string;
           password_salt?: string;
           created_at?: string;
+          email_verified_at?: string | null;
         };
         Relationships: Relationship[];
       };

@@ -1,7 +1,6 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/db";
 import { verifyVerifyToken } from "@/lib/verify-token";
-import { apiError } from "@/lib/server-session";
 
 /**
  * GET /api/auth/verify-email?token=<jwt>
@@ -36,6 +35,3 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.redirect(new URL("/dashboard?verified=1", req.url));
 }
-
-// NextResponse is needed for redirects in route handlers
-import { NextResponse } from "next/server";
