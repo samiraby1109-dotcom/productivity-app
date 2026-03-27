@@ -8,19 +8,29 @@ export async function GET(req: NextRequest) {
     const session = await requireFullSession(req);
     const db = createServiceClient();
 
-    const { data, error } = await db
+    const params = req.nextUrl.searchParams;
+    const limit = Math.min(Math.max(parseInt(params.get("limit") ?? "100"), 1), 200);
+    const offset = Math.max(parseInt(params.get("offset") ?? "0"), 0);
+
+    const { data, error, count } = await db
       .from("vault_contacts")
-      .select("id, created_at, updated_at, relationship, encrypted_payload, payload_version")
+      .select("id, created_at, updated_at, relationship, encrypted_payload, payload_version", { count: "exact" })
       .eq("user_id", session.userId)
       .order("relationship", { ascending: true })
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: true })
+      .range(offset, offset + limit - 1);
 
     if (error) {
       console.error("Contacts fetch error:", error);
       return apiError(500, "Failed to fetch contacts");
     }
 
-    return Response.json({ contacts: data ?? [] });
+    const total = count ?? 0;
+    return Response.json({
+      contacts: data ?? [],
+      total,
+      hasMore: offset + limit < total,
+    });
   } catch (err: unknown) {
     if (err instanceof Error && err.message === "Unauthorized") return apiError(401, "Unauthorized");
     if (err instanceof Error && err.message === "Forbidden") return apiError(403, "Forbidden");

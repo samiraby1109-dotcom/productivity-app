@@ -2,9 +2,14 @@ import { SignJWT, jwtVerify } from "jose";
 import { SESSION_COOKIE_NAME, SESSION_MAX_AGE } from "./constants";
 import type { SessionMode } from "./constants";
 
-const SESSION_SECRET = new TextEncoder().encode(
-  process.env.SESSION_SECRET ?? "dev-secret-32-chars-replace-in-prod!!"
-);
+function getSessionSecret(): Uint8Array {
+  if (process.env.NODE_ENV === "production" && !process.env.SESSION_SECRET) {
+    throw new Error("SESSION_SECRET env var must be set in production. Generate with: openssl rand -base64 32");
+  }
+  return new TextEncoder().encode(
+    process.env.SESSION_SECRET ?? "dev-secret-32-chars-replace-in-prod!!"
+  );
+}
 
 export interface SessionPayload {
   userId: string;
@@ -21,13 +26,13 @@ export async function signSession(payload: Omit<SessionPayload, "iat" | "exp">):
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(`${SESSION_MAX_AGE}s`)
-    .sign(SESSION_SECRET);
+    .sign(getSessionSecret());
 }
 
 // ─── Verify ───────────────────────────────────────────────────────────────────
 export async function verifySession(token: string): Promise<SessionPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, SESSION_SECRET, {
+    const { payload } = await jwtVerify(token, getSessionSecret(), {
       algorithms: ["HS256"],
     });
     return payload as unknown as SessionPayload;

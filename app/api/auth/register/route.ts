@@ -9,6 +9,7 @@ import { signSession, sessionCookieOptions } from "@/lib/session";
 import { apiError } from "@/lib/server-session";
 import { emailEnabled, sendVerificationEmail } from "@/lib/email";
 import { signVerifyToken } from "@/lib/verify-token";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,6 +20,11 @@ export async function POST(req: NextRequest) {
       passwordHint?: string;
       decoyCode: string;
     };
+
+    // IP-based rate limit: 5 registrations per minute per IP
+    const ip = getClientIp(req);
+    const allowed = await checkRateLimit(`register:${ip}`, 5);
+    if (!allowed) return apiError(429, "Too many requests. Please wait a minute.");
 
     // Validation
     if (!email || !password || !decoyCode) {

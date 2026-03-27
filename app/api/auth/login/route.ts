@@ -4,6 +4,7 @@ import { verifyPassword, verifyDecoyCode, checkLockout, recordFailedAttempt, cle
 import { signSession, sessionCookieOptions } from "@/lib/session";
 import { apiError } from "@/lib/server-session";
 import { MAX_LOGIN_ATTEMPTS, LOCKOUT_DURATION_MS } from "@/lib/constants";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 const NEUTRAL_FAIL_MSG = "Check your credentials and try again.";
 
@@ -15,6 +16,11 @@ export async function POST(req: NextRequest) {
     if (!email || !password) {
       return apiError(400, "Missing credentials");
     }
+
+    // IP-based rate limit: 10 attempts per minute regardless of account
+    const ip = getClientIp(req);
+    const allowed = await checkRateLimit(`login:${ip}`, 10);
+    if (!allowed) return apiError(429, "Too many requests. Please wait a minute.");
 
     const emailNorm = email.toLowerCase().trim();
 
