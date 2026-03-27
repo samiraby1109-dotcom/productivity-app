@@ -18,10 +18,13 @@ const FROM_ADDRESS =
 
 /** Returns true if email sending is configured and enabled. */
 export function emailEnabled(): boolean {
-  return (
-    !!process.env.RESEND_API_KEY &&
-    process.env.DEV_MODE !== "true"
-  );
+  const hasKey = !!process.env.RESEND_API_KEY;
+  const devMode = process.env.DEV_MODE === "true";
+
+  if (!hasKey) console.warn("[email] Skipping — RESEND_API_KEY is not set");
+  if (devMode) console.warn("[email] Skipping — DEV_MODE=true");
+
+  return hasKey && !devMode;
 }
 
 interface SendOptions {
@@ -56,10 +59,12 @@ export async function sendEmail(opts: SendOptions): Promise<boolean> {
 
     if (!res.ok) {
       const body = await res.text().catch(() => "");
-      console.error("[email] Resend error", res.status, body);
+      console.error("[email] Resend API error", res.status, body);
       return false;
     }
 
+    const result = await res.json().catch(() => ({}));
+    console.log("[email] Sent successfully. Resend id:", result?.id);
     return true;
   } catch (err) {
     console.error("[email] Send failed:", err);
