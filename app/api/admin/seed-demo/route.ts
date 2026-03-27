@@ -70,7 +70,7 @@ async function runSeed() {
       id: "00000000-0000-0000-0000-000000000001",
       email: "demo@tracker.local",
       password_hash: passwordHash,
-      password_hint: "It's the demo password for Daybook",
+      password_hint: "It's the demo password for BelleMeadow Wellness",
       decoy_code_hash: decoyCodeHash,
       password_salt: passwordSalt,
     },

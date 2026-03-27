@@ -4,10 +4,11 @@ import {
   hashPassword,
   hashDecoyCode,
   generatePasswordSalt,
-  verifyPassword,
 } from "@/lib/auth";
 import { signSession, sessionCookieOptions } from "@/lib/session";
 import { apiError } from "@/lib/server-session";
+import { emailEnabled, sendVerificationEmail } from "@/lib/email";
+import { signVerifyToken } from "@/lib/verify-token";
 
 export async function POST(req: NextRequest) {
   try {
@@ -78,11 +79,21 @@ export async function POST(req: NextRequest) {
       passwordSalt: user.password_salt,
     });
 
+    // Fire-and-forget verification email — never blocks registration.
+    // Skipped when RESEND_API_KEY is absent or DEV_MODE=true.
+    if (emailEnabled()) {
+      const origin = req.nextUrl.origin;
+      void signVerifyToken(user.id, user.email).then((verifyToken) => {
+        const verifyUrl = `${origin}/api/auth/verify-email?token=${encodeURIComponent(verifyToken)}`;
+        void sendVerificationEmail(user.email, verifyUrl);
+      });
+    }
+
     const { options } = sessionCookieOptions();
     const res = Response.json({ ok: true, mode: "FULL" });
     res.headers.set(
       "Set-Cookie",
-      `daybook_session=${token}; Path=${options.path}; HttpOnly; SameSite=Strict; Max-Age=${options.maxAge}${options.secure ? "; Secure" : ""}`
+      `bellemeadow_wellness_session=${token}; Path=${options.path}; HttpOnly; SameSite=Strict; Max-Age=${options.maxAge}${options.secure ? "; Secure" : ""}`
     );
     return res;
   } catch (err) {

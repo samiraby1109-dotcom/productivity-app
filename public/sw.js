@@ -5,7 +5,7 @@
  * Quick Exit must work offline — /dashboard is pre-cached.
  */
 
-const CACHE_NAME = "daybook-shell-v1";
+const CACHE_NAME = "bellemeadow-wellness-shell-v1";
 
 // App shell: static routes and assets only
 const SHELL_URLS = [

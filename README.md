@@ -1,4 +1,4 @@
-# Daybook — Daily Tracker
+# BelleMeadow Wellness — Daily Tracker
 
 > **Public positioning:** A neutral daily productivity tracker for tasks, notes, and habits.
 > This document describes the full system including its hidden features.
@@ -15,7 +15,7 @@
 | Email | `demo@tracker.local` |
 | Password | `TrackerDemo2026` |
 | Decoy Code | `2468` |
-| Password Hint | `It's the demo password for Daybook` |
+| Password Hint | `It's the demo password for BelleMeadow Wellness` |
 
 To create the demo user in your Supabase instance:
 ```bash
@@ -56,7 +56,7 @@ httpOnly cookies     → session management (no localStorage tokens)
 
 ```bash
 git clone <repo>
-cd daybook
+cd bellemeadow-wellness
 npm install
 ```
 
@@ -273,7 +273,7 @@ object-src 'none'
 
 ## Content Decisions
 
-### Why "Daybook"?
+### Why "BelleMeadow Wellness"?
 Placeholder name. Neutral, diary-adjacent, does not suggest legal evidence or DV. Must be trademark-checked before production launch.
 
 ### Why no Argon2id in MVP?

@@ -23,7 +23,7 @@ export const FULL_ALLOWED_PREFIXES = [
 export const MAX_LOGIN_ATTEMPTS = 5;
 export const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 export const IDLE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
-export const SESSION_COOKIE_NAME = "daybook_session";
+export const SESSION_COOKIE_NAME = "bellemeadow_wellness_session";
 export const SESSION_MAX_AGE = 60 * 60 * 24; // 24 hours
 
 // ─── Archive ──────────────────────────────────────────────────────────────────

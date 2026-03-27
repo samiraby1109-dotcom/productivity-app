@@ -199,8 +199,8 @@ export default function ExportClient({ mode, email, passwordSalt }: Props) {
     const csv = buildCsvContent(entries, disclaimer, exportedAt);
     const hash = await sha256Hex(csv);
     const manifest = `# SHA-256: ${hash}\n# File: export.csv\n# Exported: ${exportedAt}\n`;
-    downloadFile(csv, "daybook-export.csv", "text/csv");
-    downloadFile(manifest, "daybook-manifest.txt", "text/plain");
+    downloadFile(csv, "bellemeadow-wellness-export.csv", "text/csv");
+    downloadFile(manifest, "bellemeadow-wellness-manifest.txt", "text/plain");
   }
 
   async function exportPdf(
@@ -215,7 +215,7 @@ export default function ExportClient({ mode, email, passwordSalt }: Props) {
     const doc = new jsPDF({ unit: "pt", format: "letter" });
 
     doc.setFontSize(14);
-    doc.text("Daybook — Record Timeline", 40, 40);
+    doc.text("BelleMeadow Wellness — Record Timeline", 40, 40);
     doc.setFontSize(9);
     doc.setTextColor(120);
     doc.text(`Exported: ${exportedAt}`, 40, 56);
@@ -292,7 +292,7 @@ export default function ExportClient({ mode, email, passwordSalt }: Props) {
       }
     }
 
-    doc.save("daybook-export.pdf");
+    doc.save("bellemeadow-wellness-export.pdf");
   }
 
   async function exportZip(
@@ -336,7 +336,7 @@ export default function ExportClient({ mode, email, passwordSalt }: Props) {
 
     const hash = await sha256Hex(csv);
     const manifest = [
-      `# Daybook Export`,
+      `# BelleMeadow Wellness Export`,
       `# Exported: ${exportedAt}`,
       `# ${disclaimer}`,
       ``,
@@ -353,7 +353,7 @@ export default function ExportClient({ mode, email, passwordSalt }: Props) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "daybook-export.zip";
+    a.download = "bellemeadow-wellness-export.zip";
     a.click();
     URL.revokeObjectURL(url);
   }
