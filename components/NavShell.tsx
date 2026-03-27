@@ -5,6 +5,7 @@
  * Decoy mode: NO gear, NO tools link.
  */
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import QuickExit from "./QuickExit";
 import { cn } from "@/lib/utils";
@@ -27,8 +28,8 @@ export default function NavShell({ mode, children, onLogout }: Props) {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Top bar */}
       <header className="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-40">
-        <Link href="/dashboard" className="font-semibold text-gray-900 text-base">
-          BelleMeadow Wellness
+        <Link href="/dashboard" aria-label="BelleMeadow Wellness">
+          <Image src="/logo.png" alt="BelleMeadow Wellness" width={140} height={56} className="h-10 w-auto" priority />
         </Link>
 
         <div className="flex items-center gap-3">
