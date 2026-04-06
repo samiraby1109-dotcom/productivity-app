@@ -32,12 +32,16 @@ export async function POST(req: NextRequest) {
     }
 
     const db = createServiceClient();
-    const { data: user } = await db
+    const { data: user, error: userLookupError } = await db
       .from("users")
       .select("id, email, password_hash, decoy_code_hash, password_salt")
       .eq("email", emailNorm)
       .maybeSingle();
 
+    if (userLookupError) {
+      console.error("Login: DB user lookup failed:", userLookupError);
+      return apiError(503, "Service temporarily unavailable. Please try again.");
+    }
     if (!user) {
       // Still record attempt and return neutral error
       recordFailedAttempt(emailNorm, MAX_LOGIN_ATTEMPTS, LOCKOUT_DURATION_MS);
