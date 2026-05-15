@@ -9,10 +9,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   try {
     const session = await requireFullSession(req);
     const { id } = await params;
-    const body = await req.json() as {
-      encryptedPayload?: string;
-      relationship?: string;
-    };
+    const body = await req.json() as { encryptedPayload?: string };
 
     const db = createServiceClient();
 
@@ -26,9 +23,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
     if (!existing) return apiError(404, "Not found");
 
-    const update: { encrypted_payload?: string; relationship?: string } = {};
+    const update: { encrypted_payload?: string } = {};
     if (body.encryptedPayload !== undefined) update.encrypted_payload = body.encryptedPayload;
-    if (body.relationship !== undefined) update.relationship = body.relationship.trim().slice(0, 100);
 
     const { error } = await db
       .from("vault_contacts")

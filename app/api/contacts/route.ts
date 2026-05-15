@@ -14,9 +14,8 @@ export async function GET(req: NextRequest) {
 
     const { data, error, count } = await db
       .from("vault_contacts")
-      .select("id, created_at, updated_at, relationship, encrypted_payload, payload_version", { count: "exact" })
+      .select("id, created_at, updated_at, encrypted_payload, payload_version", { count: "exact" })
       .eq("user_id", session.userId)
-      .order("relationship", { ascending: true })
       .order("created_at", { ascending: true })
       .range(offset, offset + limit - 1);
 
@@ -42,12 +41,9 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await requireFullSession(req);
-    const body = await req.json() as {
-      encryptedPayload: string;
-      relationship?: string;
-    };
+    const body = await req.json() as { encryptedPayload: string };
 
-    const { encryptedPayload, relationship = "" } = body;
+    const { encryptedPayload } = body;
     if (!encryptedPayload) return apiError(400, "Missing payload");
 
     const db = createServiceClient();
@@ -55,7 +51,9 @@ export async function POST(req: NextRequest) {
       .from("vault_contacts")
       .insert({
         user_id: session.userId,
-        relationship: relationship.trim().slice(0, 100),
+        // relationship column kept as empty string for backward compat;
+        // the actual label now lives inside encrypted_payload.
+        relationship: "",
         encrypted_payload: encryptedPayload,
         payload_version: 1,
       })
