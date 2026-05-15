@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import PwaRegistration from "@/components/PwaRegistration";
 
@@ -6,8 +6,6 @@ export const metadata: Metadata = {
   title: "BelleMeadow Wellness — Daily Tracker",
   description: "A simple daily productivity tracker for tasks, notes, and habits.",
   manifest: "/manifest.json",
-  themeColor: "#0ea5e9",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1",
   // Deliberately neutral — no DV-related keywords
   keywords: ["productivity", "daily tracker", "tasks", "notes", "habits"],
   openGraph: {
@@ -15,6 +13,13 @@ export const metadata: Metadata = {
     description: "Track your daily tasks, notes, and habits.",
     type: "website",
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: "#0ea5e9",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
