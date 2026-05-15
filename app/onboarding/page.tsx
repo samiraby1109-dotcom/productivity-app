@@ -252,6 +252,16 @@ export default function OnboardingPage() {
               </p>
             </div>
 
+            <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 text-sm text-amber-900 leading-relaxed">
+              <p className="font-medium">A note about the day view</p>
+              <p className="mt-1">
+                Anything you type into the main tracker (tasks, notes, habits) lives unencrypted on
+                this device and is visible whether you signed in with your password or your 4-digit
+                shortcut. Keep the day view for everyday productivity content; sensitive notes
+                belong in Records.
+              </p>
+            </div>
+
             <p className="text-xs text-gray-400">
               This helps ensure your records are not accidentally or permanently lost.
             </p>
