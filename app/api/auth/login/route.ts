@@ -1,6 +1,12 @@
 import { NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/db";
-import { verifyPassword, verifyDecoyCode, checkLockout, recordFailedAttempt, clearAttempts } from "@/lib/auth";
+import {
+  verifyPassword,
+  verifyDecoyCode,
+  isLockedFromRow,
+  recordFailedAttemptDb,
+  clearAttemptsDb,
+} from "@/lib/auth";
 import { signSession, sessionCookieOptions } from "@/lib/session";
 import { apiError } from "@/lib/server-session";
 import { MAX_LOGIN_ATTEMPTS, LOCKOUT_DURATION_MS } from "@/lib/constants";
@@ -17,42 +23,48 @@ export async function POST(req: NextRequest) {
       return apiError(400, "Missing credentials");
     }
 
-    // IP-based rate limit: 10 attempts per minute regardless of account
+    // IP-based rate limit: 10 attempts/min for full-password shaped tries;
+    // 4-digit decoy-shaped tries are limited tighter to keep the 10,000-code
+    // space from being brute-forced.
     const ip = getClientIp(req);
-    const allowed = await checkRateLimit(`login:${ip}`, 10);
+    const isDigitsOnly = /^\d{4}$/.test(password);
+    const limitKey = isDigitsOnly ? `login-pin:${ip}` : `login:${ip}`;
+    const maxPerMinute = isDigitsOnly ? 3 : 10;
+    const allowed = await checkRateLimit(limitKey, maxPerMinute);
     if (!allowed) return apiError(429, "Too many requests. Please wait a minute.");
 
     const emailNorm = email.toLowerCase().trim();
 
-    // Lockout check (silent — same message for locked vs wrong creds)
-    const lockout = checkLockout(emailNorm);
-    if (lockout.locked) {
-      // Return same error as failed auth — no lockout signal to attacker
-      return apiError(401, NEUTRAL_FAIL_MSG);
-    }
-
     const db = createServiceClient();
     const { data: user } = await db
       .from("users")
-      .select("id, email, password_hash, decoy_code_hash, password_salt")
+      .select("id, email, password_hash, decoy_code_hash, password_salt, failed_attempts, locked_until")
       .eq("email", emailNorm)
       .maybeSingle();
 
     if (!user) {
-      // Still record attempt and return neutral error
-      recordFailedAttempt(emailNorm, MAX_LOGIN_ATTEMPTS, LOCKOUT_DURATION_MS);
+      // No user — return the same neutral error as a wrong password and don't
+      // record anything (there's no row to record against).
+      return apiError(401, NEUTRAL_FAIL_MSG);
+    }
+
+    // Per-account lockout (silent — same message for locked vs wrong creds)
+    if (isLockedFromRow(user)) {
       return apiError(401, NEUTRAL_FAIL_MSG);
     }
 
     const decoySecret = process.env.SESSION_SECRET ?? "dev-secret";
 
     // Check decoy code first (4-digit PIN entered as password)
-    const isDecoy =
-      /^\d{4}$/.test(password) &&
-      verifyDecoyCode(password, user.decoy_code_hash, decoySecret);
+    const isDecoy = isDigitsOnly && verifyDecoyCode(password, user.decoy_code_hash, decoySecret);
+
+    // The Supabase client's deep generic types make a direct call to
+    // clearAttemptsDb / recordFailedAttemptDb trigger TS2589. We've already
+    // proven structural compatibility, so cast through unknown.
+    const lockoutDb = db as unknown as Parameters<typeof clearAttemptsDb>[0];
 
     if (isDecoy) {
-      clearAttempts(emailNorm);
+      await clearAttemptsDb(lockoutDb, user.id);
       const token = await signSession({
         userId: user.id,
         email: user.email,
@@ -65,11 +77,17 @@ export async function POST(req: NextRequest) {
     // Try real password
     const isValid = await verifyPassword(password, user.password_hash);
     if (!isValid) {
-      recordFailedAttempt(emailNorm, MAX_LOGIN_ATTEMPTS, LOCKOUT_DURATION_MS);
+      await recordFailedAttemptDb(
+        lockoutDb,
+        user.id,
+        user.failed_attempts ?? 0,
+        MAX_LOGIN_ATTEMPTS,
+        LOCKOUT_DURATION_MS,
+      );
       return apiError(401, NEUTRAL_FAIL_MSG);
     }
 
-    clearAttempts(emailNorm);
+    await clearAttemptsDb(lockoutDb, user.id);
     const token = await signSession({
       userId: user.id,
       email: user.email,

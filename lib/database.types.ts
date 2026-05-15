@@ -30,6 +30,8 @@ export interface Database {
           password_salt: string;
           created_at: string;
           email_verified_at: string | null;
+          failed_attempts: number;
+          locked_until: string | null;
         };
         Insert: {
           id?: string;
@@ -40,6 +42,8 @@ export interface Database {
           password_salt: string;
           created_at?: string;
           email_verified_at?: string | null;
+          failed_attempts?: number;
+          locked_until?: string | null;
         };
         Update: {
           id?: string;
@@ -50,6 +54,8 @@ export interface Database {
           password_salt?: string;
           created_at?: string;
           email_verified_at?: string | null;
+          failed_attempts?: number;
+          locked_until?: string | null;
         };
         Relationships: Relationship[];
       };
