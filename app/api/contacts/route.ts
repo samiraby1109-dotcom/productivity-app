@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { requireFullSession, apiError } from "@/lib/server-session";
+import { requireFullSession, apiError, requireJsonBody } from "@/lib/server-session";
 import { createServiceClient } from "@/lib/db";
 
 // GET /api/contacts — list all contacts for the current user
@@ -40,6 +40,8 @@ export async function GET(req: NextRequest) {
 // POST /api/contacts — create a new contact
 export async function POST(req: NextRequest) {
   try {
+    const ctError = requireJsonBody(req);
+    if (ctError) return ctError;
     const session = await requireFullSession(req);
     const body = await req.json() as { encryptedPayload: string };
 

@@ -50,6 +50,21 @@ export function apiError(status: number, message: string): Response {
   return Response.json({ error: message }, { status });
 }
 
+/**
+ * Defence-in-depth CSRF check for mutating JSON endpoints.
+ *
+ * Cookies are already SameSite=Strict, but rejecting anything that isn't an
+ * application/json body blocks simple cross-origin form posts and curl-style
+ * exploits that rely on a permissive Content-Type. Multipart uploads (media
+ * upload) opt out via the `allow` param.
+ */
+export function requireJsonBody(req: Request, allow: ReadonlyArray<string> = []): Response | null {
+  const ct = (req.headers.get("content-type") ?? "").toLowerCase();
+  if (ct.startsWith("application/json")) return null;
+  if (allow.some((prefix) => ct.startsWith(prefix))) return null;
+  return apiError(415, "Unsupported Media Type");
+}
+
 /** Look up user row by userId, enforcing ownership. */
 export async function getUser(userId: string) {
   const db = createServiceClient();

@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { requireFullSession, apiError } from "@/lib/server-session";
+import { requireFullSession, apiError, requireJsonBody } from "@/lib/server-session";
 import { createServiceClient } from "@/lib/db";
 import { verifyPassword } from "@/lib/auth";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
@@ -61,6 +61,8 @@ export async function GET(req: NextRequest) {
 // ─── POST /api/archive/restore — restore entry to active ─────────────────────
 export async function POST(req: NextRequest) {
   try {
+    const ctError = requireJsonBody(req);
+    if (ctError) return ctError;
     const session = await requireFullSession(req);
     const body = await req.json();
     const { entryId, action, password } = body as {

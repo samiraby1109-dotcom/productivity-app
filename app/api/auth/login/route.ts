@@ -8,7 +8,7 @@ import {
   clearAttemptsDb,
 } from "@/lib/auth";
 import { signSession, sessionCookieOptions } from "@/lib/session";
-import { apiError } from "@/lib/server-session";
+import { apiError, requireJsonBody } from "@/lib/server-session";
 import { MAX_LOGIN_ATTEMPTS, LOCKOUT_DURATION_MS } from "@/lib/constants";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
@@ -16,6 +16,9 @@ const NEUTRAL_FAIL_MSG = "Check your credentials and try again.";
 
 export async function POST(req: NextRequest) {
   try {
+    const ctError = requireJsonBody(req);
+    if (ctError) return ctError;
+
     const body = await req.json();
     const { email, password } = body as { email: string; password: string };
 

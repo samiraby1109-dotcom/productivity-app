@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { requireFullSession, apiError } from "@/lib/server-session";
+import { requireFullSession, apiError, requireJsonBody } from "@/lib/server-session";
 import { createServiceClient } from "@/lib/db";
 import { verifyPassword } from "@/lib/auth";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
@@ -11,6 +11,8 @@ import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
  */
 export async function POST(req: NextRequest) {
   try {
+    const ctError = requireJsonBody(req);
+    if (ctError) return ctError;
     const session = await requireFullSession(req);
 
     // The endpoint re-verifies the password; without a rate limit a stolen

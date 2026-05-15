@@ -6,7 +6,7 @@ import {
   generatePasswordSalt,
 } from "@/lib/auth";
 import { signSession, sessionCookieOptions } from "@/lib/session";
-import { apiError } from "@/lib/server-session";
+import { apiError, requireJsonBody } from "@/lib/server-session";
 import { emailEnabled, sendVerificationEmail } from "@/lib/email";
 import { signVerifyToken } from "@/lib/verify-token";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
@@ -27,6 +27,9 @@ function isWeakDecoyCode(code: string): boolean {
 
 export async function POST(req: NextRequest) {
   try {
+    const ctError = requireJsonBody(req);
+    if (ctError) return ctError;
+
     const body = await req.json();
     const { email, password, passwordHint, decoyCode } = body as {
       email: string;

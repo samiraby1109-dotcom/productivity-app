@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { requireFullSession, apiError } from "@/lib/server-session";
+import { requireFullSession, apiError, requireJsonBody } from "@/lib/server-session";
 import { createServiceClient } from "@/lib/db";
 
 type Params = { params: Promise<{ id: string }> };
@@ -7,6 +7,8 @@ type Params = { params: Promise<{ id: string }> };
 // PATCH /api/contacts/[id] — update a contact
 export async function PATCH(req: NextRequest, { params }: Params) {
   try {
+    const ctError = requireJsonBody(req);
+    if (ctError) return ctError;
     const session = await requireFullSession(req);
     const { id } = await params;
     const body = await req.json() as { encryptedPayload?: string };

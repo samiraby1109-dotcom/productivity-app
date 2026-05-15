@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { requireFullSession, apiError } from "@/lib/server-session";
+import { requireFullSession, apiError, requireJsonBody } from "@/lib/server-session";
 import { createServiceClient } from "@/lib/db";
 import { v4 as uuidv4 } from "uuid";
 import type { MediaKind } from "@/lib/constants";
@@ -24,6 +24,8 @@ const MAX_SIZE = 100 * 1024 * 1024; // 100 MB
 // POST /api/media/upload
 export async function POST(req: NextRequest) {
   try {
+    const ctError = requireJsonBody(req, ["multipart/form-data"]);
+    if (ctError) return ctError;
     const session = await requireFullSession(req);
     const formData = await req.formData();
 

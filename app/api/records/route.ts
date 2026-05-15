@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { requireFullSession, apiError } from "@/lib/server-session";
+import { requireFullSession, apiError, requireJsonBody } from "@/lib/server-session";
 import { createServiceClient } from "@/lib/db";
 // ARCHIVE_RETENTION_DAYS used in DELETE handler via records/[id]/route.ts
 
@@ -75,6 +75,8 @@ export async function GET(req: NextRequest) {
 // ─── POST /api/records — create a new entry ───────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
+    const ctError = requireJsonBody(req);
+    if (ctError) return ctError;
     const session = await requireFullSession(req);
     const body = await req.json();
 
