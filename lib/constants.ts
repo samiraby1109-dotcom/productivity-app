@@ -29,6 +29,12 @@ export const SESSION_MAX_AGE = 60 * 60 * 24; // 24 hours
 // ─── Archive ──────────────────────────────────────────────────────────────────
 export const ARCHIVE_RETENTION_DAYS = 30;
 
+// ─── Payload size ─────────────────────────────────────────────────────────────
+// Limit on the base64-ish encrypted payload string. Real entries top out well
+// below this; the cap exists so a misbehaving or malicious client can't pin
+// the database / Postgres TOAST storage with multi-megabyte rows.
+export const MAX_ENCRYPTED_PAYLOAD_BYTES = 256 * 1024; // 256 KB
+
 // ─── Incident Types ───────────────────────────────────────────────────────────
 export const INCIDENT_TYPES = [
   { key: "PHYSICAL_VIOLENCE", label: "Physical violence (hit, shove, restrain)" },

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { requireFullSession, apiError, requireJsonBody } from "@/lib/server-session";
 import { createServiceClient } from "@/lib/db";
+import { MAX_ENCRYPTED_PAYLOAD_BYTES } from "@/lib/constants";
 
 // GET /api/contacts — list all contacts for the current user
 export async function GET(req: NextRequest) {
@@ -47,6 +48,9 @@ export async function POST(req: NextRequest) {
 
     const { encryptedPayload } = body;
     if (!encryptedPayload) return apiError(400, "Missing payload");
+    if (encryptedPayload.length > MAX_ENCRYPTED_PAYLOAD_BYTES) {
+      return apiError(413, "Contact too large");
+    }
 
     const db = createServiceClient();
     const { data, error } = await db

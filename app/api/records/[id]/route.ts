@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { requireFullSession, apiError, requireJsonBody } from "@/lib/server-session";
 import { createServiceClient } from "@/lib/db";
-import { ARCHIVE_RETENTION_DAYS } from "@/lib/constants";
+import { ARCHIVE_RETENTION_DAYS, MAX_ENCRYPTED_PAYLOAD_BYTES, INCIDENT_TYPES } from "@/lib/constants";
 
 // ─── GET /api/records/[id] ────────────────────────────────────────────────────
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -48,8 +48,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (existing.status === "PURGED") return apiError(410, "Gone");
 
     const updateFields: Record<string, unknown> = {};
-    if (body.encryptedPayload !== undefined) updateFields.encrypted_payload = body.encryptedPayload;
-    if (body.incidentTypes !== undefined) updateFields.incident_types = body.incidentTypes;
+    if (body.encryptedPayload !== undefined) {
+      if (typeof body.encryptedPayload !== "string" || body.encryptedPayload.length > MAX_ENCRYPTED_PAYLOAD_BYTES) {
+        return apiError(413, "Entry too large");
+      }
+      updateFields.encrypted_payload = body.encryptedPayload;
+    }
+    if (body.incidentTypes !== undefined) {
+      const validTypeKeys = new Set(INCIDENT_TYPES.map((t) => t.key as string));
+      updateFields.incident_types = (body.incidentTypes as unknown[])
+        .filter((t): t is string => typeof t === "string" && validTypeKeys.has(t))
+        .slice(0, INCIDENT_TYPES.length);
+    }
     if (body.flagsPolice !== undefined) updateFields.flags_police = body.flagsPolice;
     if (body.flagsChildren !== undefined) updateFields.flags_children = body.flagsChildren;
     if (body.flagsWitness !== undefined) updateFields.flags_witness = body.flagsWitness;

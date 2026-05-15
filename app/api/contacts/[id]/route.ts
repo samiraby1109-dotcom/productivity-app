@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { requireFullSession, apiError, requireJsonBody } from "@/lib/server-session";
 import { createServiceClient } from "@/lib/db";
+import { MAX_ENCRYPTED_PAYLOAD_BYTES } from "@/lib/constants";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -26,7 +27,12 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     if (!existing) return apiError(404, "Not found");
 
     const update: { encrypted_payload?: string } = {};
-    if (body.encryptedPayload !== undefined) update.encrypted_payload = body.encryptedPayload;
+    if (body.encryptedPayload !== undefined) {
+      if (typeof body.encryptedPayload !== "string" || body.encryptedPayload.length > MAX_ENCRYPTED_PAYLOAD_BYTES) {
+        return apiError(413, "Contact too large");
+      }
+      update.encrypted_payload = body.encryptedPayload;
+    }
 
     const { error } = await db
       .from("vault_contacts")
