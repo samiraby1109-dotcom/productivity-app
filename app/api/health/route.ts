@@ -1,17 +1,30 @@
+import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 /**
  * GET /api/health
- * Public diagnostic endpoint — shows which env vars are set, DB connectivity,
+ * Diagnostic endpoint — shows which env vars are set, DB connectivity,
  * whether the schema exists, and whether the demo user has been seeded.
  * Never leaks actual values; only booleans.
+ *
+ * Requires Authorization: Bearer <CRON_SECRET>. The endpoint used to be
+ * fully public and gave attackers a free read on which env vars were set,
+ * whether the demo user existed, and instructions for setup — useful recon.
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    return Response.json({ error: "CRON_SECRET not configured" }, { status: 503 });
+  }
+  const auth = req.headers.get("authorization") ?? "";
+  if (auth !== `Bearer ${cronSecret}`) {
+    // 404 (not 401) so unauthed callers can't even detect the endpoint exists.
+    return new Response("Not found", { status: 404 });
+  }
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const sessionSecret = process.env.SESSION_SECRET;
-  const cronSecret = process.env.CRON_SECRET;
 
   const env = {
     supabaseUrl: !!url && !url.includes("placeholder"),
