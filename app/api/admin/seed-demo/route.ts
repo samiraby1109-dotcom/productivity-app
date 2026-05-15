@@ -7,26 +7,14 @@ const pbkdf2Async = promisify(nodePbkdf2);
 
 /**
  * POST /api/admin/seed-demo  — via curl with Authorization: Bearer <CRON_SECRET>
- * GET  /api/admin/seed-demo?secret=<CRON_SECRET>  — browser-friendly
  *
  * Creates (or re-creates) the demo user using the live SESSION_SECRET so the
  * decoy code hash matches exactly what the login route expects.
+ *
+ * The browser-friendly GET form is intentionally not implemented: passing the
+ * secret in a query string leaks it to access logs, browser history, proxies,
+ * and Referer headers — even in dev that's a habit not worth building.
  */
-export async function GET(req: NextRequest) {
-  if (process.env.NODE_ENV === "production") {
-    return Response.json({ error: "Not available in production" }, { status: 403 });
-  }
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
-    return Response.json({ error: "CRON_SECRET not configured" }, { status: 503 });
-  }
-  const secret = req.nextUrl.searchParams.get("secret") ?? "";
-  if (secret !== cronSecret) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  return runSeed();
-}
-
 export async function POST(req: NextRequest) {
   if (process.env.NODE_ENV === "production") {
     return Response.json({ error: "Not available in production" }, { status: 403 });
