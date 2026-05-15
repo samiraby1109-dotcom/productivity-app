@@ -104,9 +104,36 @@ export async function POST(req: NextRequest) {
       const valid = await verifyPassword(password, user.password_hash);
       if (!valid) return apiError(401, "Incorrect password");
 
-      // Permanently delete entry (cascade deletes media + queue)
-      await db.from("vault_entries").update({ status: "PURGED" }).eq("id", entryId);
+      // Actually delete: storage objects first, then DB rows. The previous
+      // implementation only flipped status to PURGED and left
+      // encrypted_payload and storage blobs intact, contradicting the user
+      // promise that the data was permanently removed.
+      const { data: mediaRows } = await db
+        .from("vault_media")
+        .select("storage_path")
+        .eq("entry_id", entryId)
+        .eq("user_id", session.userId);
+
+      if (mediaRows && mediaRows.length > 0) {
+        const paths = mediaRows.map((m) => m.storage_path);
+        const { error: storageError } = await db.storage.from("vault-media").remove(paths);
+        if (storageError) {
+          console.error("Purge: storage removal failed; aborting to avoid orphaned files:", storageError);
+          return apiError(500, "Could not remove attachments. Try again.");
+        }
+      }
+
       await db.from("archive_queue").delete().eq("entry_id", entryId);
+      // FK cascade on vault_media drops the media rows when the entry row goes.
+      const { error: delError } = await db
+        .from("vault_entries")
+        .delete()
+        .eq("id", entryId)
+        .eq("user_id", session.userId);
+      if (delError) {
+        console.error("Purge: entry delete failed:", delError);
+        return apiError(500, "Delete failed");
+      }
 
       return Response.json({ ok: true });
     }

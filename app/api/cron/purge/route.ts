@@ -56,14 +56,18 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Mark entries as PURGED (cascade deletes media rows via FK)
-    await db
-      .from("vault_entries")
-      .update({ status: "PURGED" })
-      .in("id", entryIds);
-
-    // Remove from archive queue
+    // Actually delete the rows (FK cascade drops vault_media rows).
+    // Previously this only flipped status to PURGED, leaving the
+    // encrypted_payload sitting in the table after the 30-day window.
     await db.from("archive_queue").delete().in("entry_id", entryIds);
+    const { error: delError } = await db
+      .from("vault_entries")
+      .delete()
+      .in("id", entryIds);
+    if (delError) {
+      console.error("Purge cron: DB delete failed:", delError);
+      return apiError(500, "DB delete failed; will retry on next run.");
+    }
 
     console.log(`Purge cron: purged ${entryIds.length} entries`);
     return Response.json({ purged: entryIds.length });
