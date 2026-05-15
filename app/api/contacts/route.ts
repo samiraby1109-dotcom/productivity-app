@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
-import { requireFullSession, apiError } from "@/lib/server-session";
+import { requireFullSession, apiError, requireJsonBody } from "@/lib/server-session";
 import { createServiceClient } from "@/lib/db";
+import { MAX_ENCRYPTED_PAYLOAD_BYTES } from "@/lib/constants";
 
 // GET /api/contacts — list all contacts for the current user
 export async function GET(req: NextRequest) {
@@ -14,9 +15,8 @@ export async function GET(req: NextRequest) {
 
     const { data, error, count } = await db
       .from("vault_contacts")
-      .select("id, created_at, updated_at, relationship, encrypted_payload, payload_version", { count: "exact" })
+      .select("id, created_at, updated_at, encrypted_payload, payload_version", { count: "exact" })
       .eq("user_id", session.userId)
-      .order("relationship", { ascending: true })
       .order("created_at", { ascending: true })
       .range(offset, offset + limit - 1);
 
@@ -41,21 +41,25 @@ export async function GET(req: NextRequest) {
 // POST /api/contacts — create a new contact
 export async function POST(req: NextRequest) {
   try {
+    const ctError = requireJsonBody(req);
+    if (ctError) return ctError;
     const session = await requireFullSession(req);
-    const body = await req.json() as {
-      encryptedPayload: string;
-      relationship?: string;
-    };
+    const body = await req.json() as { encryptedPayload: string };
 
-    const { encryptedPayload, relationship = "" } = body;
+    const { encryptedPayload } = body;
     if (!encryptedPayload) return apiError(400, "Missing payload");
+    if (encryptedPayload.length > MAX_ENCRYPTED_PAYLOAD_BYTES) {
+      return apiError(413, "Contact too large");
+    }
 
     const db = createServiceClient();
     const { data, error } = await db
       .from("vault_contacts")
       .insert({
         user_id: session.userId,
-        relationship: relationship.trim().slice(0, 100),
+        // relationship column kept as empty string for backward compat;
+        // the actual label now lives inside encrypted_payload.
+        relationship: "",
         encrypted_payload: encryptedPayload,
         payload_version: 1,
       })

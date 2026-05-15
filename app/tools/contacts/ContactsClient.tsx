@@ -15,6 +15,7 @@ interface ContactPayload {
   phone: string;
   email: string;
   notes: string;
+  relationship?: string;
 }
 
 interface Contact {
@@ -25,7 +26,10 @@ interface Contact {
 
 interface RawContact {
   id: string;
-  relationship: string;
+  // Legacy cleartext field; kept on the wire for backward-compat read of old
+  // rows. New writes leave it empty and store the label inside the encrypted
+  // payload instead.
+  relationship?: string;
   encrypted_payload: string;
 }
 
@@ -71,11 +75,15 @@ export default function ContactsClient({ mode, email, passwordSalt }: Props) {
         try {
           const blob = JSON.parse(c.encrypted_payload) as EncryptedBlob;
           const payload = await decryptPayload<ContactPayload>(blob, vaultKey);
-          decrypted.push({ id: c.id, relationship: c.relationship, payload });
+          // Prefer the encrypted relationship; fall back to the legacy cleartext
+          // column for rows written before the migration.
+          const relationship = payload.relationship ?? c.relationship ?? "";
+          decrypted.push({ id: c.id, relationship, payload });
         } catch {
           // Skip contacts that fail to decrypt rather than crashing the list
         }
       }
+      decrypted.sort((a, b) => a.relationship.localeCompare(b.relationship));
       setContacts(decrypted);
       setLoadStatus("ready");
     } catch {
@@ -124,7 +132,13 @@ export default function ContactsClient({ mode, email, passwordSalt }: Props) {
 
     try {
       const blob = await encryptPayload(
-        { name: form.name.trim(), phone: form.phone.trim(), email: form.email.trim(), notes: form.notes.trim() },
+        {
+          name: form.name.trim(),
+          phone: form.phone.trim(),
+          email: form.email.trim(),
+          notes: form.notes.trim(),
+          relationship: form.relationship.trim().slice(0, 100),
+        },
         vaultKey
       );
       const encryptedPayload = JSON.stringify(blob);
@@ -133,14 +147,14 @@ export default function ContactsClient({ mode, email, passwordSalt }: Props) {
         const res = await fetch(`/api/contacts/${editId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ encryptedPayload, relationship: form.relationship }),
+          body: JSON.stringify({ encryptedPayload }),
         });
         if (!res.ok) { setFormError("Failed to save. Please try again."); return; }
       } else {
         const res = await fetch("/api/contacts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ encryptedPayload, relationship: form.relationship }),
+          body: JSON.stringify({ encryptedPayload }),
         });
         if (!res.ok) { setFormError("Failed to save. Please try again."); return; }
       }

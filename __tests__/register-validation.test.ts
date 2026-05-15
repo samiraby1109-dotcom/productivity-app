@@ -6,6 +6,14 @@
 import { describe, it, expect } from "vitest";
 
 // Mirror of the validation logic in register/route.ts
+function isWeakDecoyCode(code: string): boolean {
+  if (/^(\d)\1{3}$/.test(code)) return true;
+  if (/^0123|1234|2345|3456|4567|5678|6789$/.test(code)) return true;
+  if (/^9876|8765|7654|6543|5432|4321|3210$/.test(code)) return true;
+  const blocklist = new Set(["1004", "2580", "0852", "1212", "2121", "0007", "6969", "1010"]);
+  return blocklist.has(code);
+}
+
 function validateRegistration(body: {
   email?: string;
   password?: string;
@@ -15,13 +23,14 @@ function validateRegistration(body: {
   if (!email || !password || !decoyCode) return "Missing required fields";
   if (password.length < 8) return "Password must be at least 8 characters";
   if (!/^\d{4}$/.test(decoyCode)) return "Decoy code must be exactly 4 digits";
+  if (isWeakDecoyCode(decoyCode)) return "Please choose a less guessable 4-digit code.";
   return null;
 }
 
 describe("registration input validation", () => {
   it("accepts valid input", () => {
     expect(
-      validateRegistration({ email: "a@b.com", password: "12345678", decoyCode: "1234" })
+      validateRegistration({ email: "a@b.com", password: "12345678", decoyCode: "2468" })
     ).toBeNull();
   });
 
@@ -51,7 +60,7 @@ describe("registration input validation", () => {
 
   it("accepts password of exactly 8 chars", () => {
     expect(
-      validateRegistration({ email: "a@b.com", password: "12345678", decoyCode: "1234" })
+      validateRegistration({ email: "a@b.com", password: "12345678", decoyCode: "2468" })
     ).toBeNull();
   });
 
@@ -77,5 +86,20 @@ describe("registration input validation", () => {
     expect(
       validateRegistration({ email: "a@b.com", password: "12345678", decoyCode: "12 4" })
     ).toBe("Decoy code must be exactly 4 digits");
+  });
+
+  it.each(["0000", "1111", "9999", "1234", "4321", "5678", "6789", "0123", "1010", "6969"])(
+    "rejects weak decoy code %s",
+    (code) => {
+      expect(
+        validateRegistration({ email: "a@b.com", password: "12345678", decoyCode: code })
+      ).toBe("Please choose a less guessable 4-digit code.");
+    }
+  );
+
+  it.each(["2468", "8137", "5093", "7204"])("accepts non-trivial code %s", (code) => {
+    expect(
+      validateRegistration({ email: "a@b.com", password: "12345678", decoyCode: code })
+    ).toBeNull();
   });
 });

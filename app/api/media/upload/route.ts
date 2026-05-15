@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { requireFullSession, apiError } from "@/lib/server-session";
+import { requireFullSession, apiError, requireJsonBody } from "@/lib/server-session";
 import { createServiceClient } from "@/lib/db";
 import { v4 as uuidv4 } from "uuid";
 import type { MediaKind } from "@/lib/constants";
@@ -24,6 +24,8 @@ const MAX_SIZE = 100 * 1024 * 1024; // 100 MB
 // POST /api/media/upload
 export async function POST(req: NextRequest) {
   try {
+    const ctError = requireJsonBody(req, ["multipart/form-data"]);
+    if (ctError) return ctError;
     const session = await requireFullSession(req);
     const formData = await req.formData();
 
@@ -59,9 +61,16 @@ export async function POST(req: NextRequest) {
 
     if (!entry) return apiError(404, "Entry not found");
 
-    // Upload encrypted blob to Supabase Storage
+    // Upload encrypted blob to Supabase Storage.
+    //
+    // Storage path is fully random — earlier versions used
+    // `${userId}/${entryId}/${fileId}` which leaked the user's UUID and the
+    // record-to-attachment relationship into every short-lived signed URL.
+    // The mapping back to user/entry is preserved in vault_media so signed-URL
+    // generation still verifies ownership server-side.
     const fileId = uuidv4();
-    const storagePath = `${session.userId}/${entryId}/${fileId}`;
+    const bucket = uuidv4();
+    const storagePath = `${bucket.slice(0, 2)}/${bucket}/${fileId}`;
     const arrayBuffer = await file.arrayBuffer();
 
     const { error: storageError } = await db.storage

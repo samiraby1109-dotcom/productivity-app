@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
-import { requireFullSession, apiError } from "@/lib/server-session";
+import { requireFullSession, apiError, requireJsonBody } from "@/lib/server-session";
 import { createServiceClient } from "@/lib/db";
+import { MAX_ENCRYPTED_PAYLOAD_BYTES, INCIDENT_TYPES } from "@/lib/constants";
 // ARCHIVE_RETENTION_DAYS used in DELETE handler via records/[id]/route.ts
 
 // ─── GET /api/records — list entries with optional filters ────────────────────
@@ -75,6 +76,8 @@ export async function GET(req: NextRequest) {
 // ─── POST /api/records — create a new entry ───────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
+    const ctError = requireJsonBody(req);
+    if (ctError) return ctError;
     const session = await requireFullSession(req);
     const body = await req.json();
 
@@ -93,6 +96,14 @@ export async function POST(req: NextRequest) {
     };
 
     if (!encryptedPayload) return apiError(400, "Missing payload");
+    if (encryptedPayload.length > MAX_ENCRYPTED_PAYLOAD_BYTES) {
+      return apiError(413, "Entry too large");
+    }
+    const validTypeKeys = new Set(INCIDENT_TYPES.map((t) => t.key as string));
+    const safeIncidentTypes = (incidentTypes ?? [])
+      .filter((t): t is string => typeof t === "string")
+      .filter((t) => validTypeKeys.has(t))
+      .slice(0, INCIDENT_TYPES.length);
 
     const db = createServiceClient();
     const { data, error } = await db
@@ -100,7 +111,7 @@ export async function POST(req: NextRequest) {
       .insert({
         user_id: session.userId,
         status: "ACTIVE",
-        incident_types: incidentTypes,
+        incident_types: safeIncidentTypes,
         flags_police: flagsPolice,
         flags_children: flagsChildren,
         flags_witness: flagsWitness,

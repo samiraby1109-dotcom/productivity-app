@@ -5,13 +5,15 @@
  * Quick Exit must work offline — /dashboard is pre-cached.
  */
 
-const CACHE_NAME = "bellemeadow-wellness-shell-v1";
+const CACHE_NAME = "bellemeadow-wellness-shell-v2";
 
-// App shell: static routes and assets only
+// App shell: static routes and assets only. /dashboard is intentionally NOT
+// pre-cached because it is server-rendered with the current session — caching
+// the HTML risks cross-contaminating FULL vs DECOY state or different users
+// on shared devices on subsequent offline loads.
 const SHELL_URLS = [
   "/",
   "/login",
-  "/dashboard",
   "/manifest.json",
 ];
 
@@ -53,13 +55,16 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Never cache vault/tools routes (content is sensitive)
+  // Never cache vault/tools routes or the per-user dashboard
+  // (content is sensitive / session-dependent).
   if (
     url.pathname.startsWith("/tools/") ||
-    url.pathname.startsWith("/onboarding")
+    url.pathname.startsWith("/onboarding") ||
+    url.pathname === "/dashboard" ||
+    url.pathname.startsWith("/dashboard/")
   ) {
     event.respondWith(fetch(request).catch(() => {
-      return caches.match("/dashboard") ?? new Response("Offline", { status: 503 });
+      return caches.match("/") ?? new Response("Offline", { status: 503 });
     }));
     return;
   }

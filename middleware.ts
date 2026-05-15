@@ -15,11 +15,13 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/health") ||
     pathname.startsWith("/api/admin/") ||
+    pathname.startsWith("/api/cron/") ||
     pathname.startsWith("/icons") ||
     pathname === "/manifest.json" ||
     pathname === "/sw.js" ||
     pathname === "/favicon.ico"
   ) {
+    // /api/health, /api/admin/* and /api/cron/* enforce their own bearer auth.
     return NextResponse.next();
   }
 

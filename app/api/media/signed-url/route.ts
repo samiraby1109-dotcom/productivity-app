@@ -1,10 +1,12 @@
 import { NextRequest } from "next/server";
-import { requireFullSession, apiError } from "@/lib/server-session";
+import { requireFullSession, apiError, requireJsonBody } from "@/lib/server-session";
 import { createServiceClient } from "@/lib/db";
 
 // POST /api/media/signed-url — get a short-lived signed download URL for a media file
 export async function POST(req: NextRequest) {
   try {
+    const ctError = requireJsonBody(req);
+    if (ctError) return ctError;
     const session = await requireFullSession(req);
     const { mediaId } = await req.json() as { mediaId: string };
     if (!mediaId) return apiError(400, "Missing mediaId");

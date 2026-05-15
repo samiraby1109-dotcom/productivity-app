@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
-import { requireFullSession, apiError } from "@/lib/server-session";
+import { requireFullSession, apiError, requireJsonBody } from "@/lib/server-session";
 import { createServiceClient } from "@/lib/db";
 import { verifyPassword } from "@/lib/auth";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 // ─── GET /api/archive — list archived entries ─────────────────────────────────
 export async function GET(req: NextRequest) {
@@ -60,6 +61,8 @@ export async function GET(req: NextRequest) {
 // ─── POST /api/archive/restore — restore entry to active ─────────────────────
 export async function POST(req: NextRequest) {
   try {
+    const ctError = requireJsonBody(req);
+    if (ctError) return ctError;
     const session = await requireFullSession(req);
     const body = await req.json();
     const { entryId, action, password } = body as {
@@ -93,6 +96,11 @@ export async function POST(req: NextRequest) {
       // Permanent delete — requires password re-entry
       if (!password) return apiError(400, "Password required");
 
+      // Rate-limit the password check to block brute force via a stolen cookie.
+      const ip = getClientIp(req);
+      const allowed = await checkRateLimit(`purge:${session.userId}:${ip}`, 5);
+      if (!allowed) return apiError(429, "Too many requests. Please wait a minute.");
+
       const { data: user } = await db
         .from("users")
         .select("password_hash")
@@ -104,9 +112,36 @@ export async function POST(req: NextRequest) {
       const valid = await verifyPassword(password, user.password_hash);
       if (!valid) return apiError(401, "Incorrect password");
 
-      // Permanently delete entry (cascade deletes media + queue)
-      await db.from("vault_entries").update({ status: "PURGED" }).eq("id", entryId);
+      // Actually delete: storage objects first, then DB rows. The previous
+      // implementation only flipped status to PURGED and left
+      // encrypted_payload and storage blobs intact, contradicting the user
+      // promise that the data was permanently removed.
+      const { data: mediaRows } = await db
+        .from("vault_media")
+        .select("storage_path")
+        .eq("entry_id", entryId)
+        .eq("user_id", session.userId);
+
+      if (mediaRows && mediaRows.length > 0) {
+        const paths = mediaRows.map((m) => m.storage_path);
+        const { error: storageError } = await db.storage.from("vault-media").remove(paths);
+        if (storageError) {
+          console.error("Purge: storage removal failed; aborting to avoid orphaned files:", storageError);
+          return apiError(500, "Could not remove attachments. Try again.");
+        }
+      }
+
       await db.from("archive_queue").delete().eq("entry_id", entryId);
+      // FK cascade on vault_media drops the media rows when the entry row goes.
+      const { error: delError } = await db
+        .from("vault_entries")
+        .delete()
+        .eq("id", entryId)
+        .eq("user_id", session.userId);
+      if (delError) {
+        console.error("Purge: entry delete failed:", delError);
+        return apiError(500, "Delete failed");
+      }
 
       return Response.json({ ok: true });
     }

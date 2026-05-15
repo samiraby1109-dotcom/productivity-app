@@ -66,7 +66,9 @@ export function generatePasswordSalt(): string {
 }
 
 // ─── Lockout ─────────────────────────────────────────────────────────────────
-// In-memory lockout store (use Redis or DB in production)
+// Legacy in-memory lockout — retained for unit tests and as a fallback.
+// Production code uses the DB-backed helpers below so the counter survives
+// Vercel cold starts and works across serverless instances.
 const lockoutMap = new Map<string, { attempts: number; lockedUntil: number }>();
 
 export function checkLockout(identifier: string): { locked: boolean; remainingMs: number } {
@@ -89,4 +91,47 @@ export function recordFailedAttempt(identifier: string, maxAttempts: number, loc
 
 export function clearAttempts(identifier: string): void {
   lockoutMap.delete(identifier);
+}
+
+// ─── DB-backed lockout (used by login route) ─────────────────────────────────
+type LockoutRowFields = {
+  failed_attempts?: number | null;
+  locked_until?: string | null;
+};
+
+// Structural type for the bits of a Supabase client we use here. Keeps this
+// module decoupled from the SupabaseClient generics without weakening to any.
+interface UsersUpdater {
+  from(table: "users"): {
+    update(values: { failed_attempts?: number; locked_until?: string | null }): {
+      eq(column: "id", value: string): unknown;
+    };
+  };
+}
+
+export function isLockedFromRow(row: LockoutRowFields | null | undefined): boolean {
+  if (!row?.locked_until) return false;
+  return new Date(row.locked_until).getTime() > Date.now();
+}
+
+export async function recordFailedAttemptDb(
+  db: UsersUpdater,
+  userId: string,
+  currentAttempts: number,
+  maxAttempts: number,
+  lockoutMs: number,
+): Promise<void> {
+  const attempts = currentAttempts + 1;
+  const update: { failed_attempts: number; locked_until?: string } = { failed_attempts: attempts };
+  if (attempts >= maxAttempts) {
+    update.locked_until = new Date(Date.now() + lockoutMs).toISOString();
+  }
+  await Promise.resolve(db.from("users").update(update).eq("id", userId));
+}
+
+export async function clearAttemptsDb(
+  db: UsersUpdater,
+  userId: string,
+): Promise<void> {
+  await Promise.resolve(db.from("users").update({ failed_attempts: 0, locked_until: null }).eq("id", userId));
 }

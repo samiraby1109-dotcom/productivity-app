@@ -180,8 +180,8 @@ export default function OnboardingPage() {
           <form onSubmit={handleDecoyNext} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
             <h2 className="font-semibold text-gray-900">Quick-switch code</h2>
             <p className="text-sm text-gray-500">
-              Set a 4-digit code for quick access to your daily tracker view.
-              Entering this code at login shows only the productivity dashboard.
+              Set a 4-digit shortcut for fast access to your daily tracker.
+              You can keep it handy when you just want the day view.
             </p>
 
             <div>
@@ -249,6 +249,16 @@ export default function OnboardingPage() {
               </p>
               <p className="mt-2">
                 After 30 days, they permanently delete automatically.
+              </p>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 text-sm text-amber-900 leading-relaxed">
+              <p className="font-medium">A note about the day view</p>
+              <p className="mt-1">
+                Anything you type into the main tracker (tasks, notes, habits) lives unencrypted on
+                this device and is visible whether you signed in with your password or your 4-digit
+                shortcut. Keep the day view for everyday productivity content; sensitive notes
+                belong in Records.
               </p>
             </div>
 
