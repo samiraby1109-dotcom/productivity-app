@@ -180,8 +180,8 @@ export default function OnboardingPage() {
           <form onSubmit={handleDecoyNext} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
             <h2 className="font-semibold text-gray-900">Quick-switch code</h2>
             <p className="text-sm text-gray-500">
-              Set a 4-digit code for quick access to your daily tracker view.
-              Entering this code at login shows only the productivity dashboard.
+              Set a 4-digit shortcut for fast access to your daily tracker.
+              You can keep it handy when you just want the day view.
             </p>
 
             <div>
