@@ -53,18 +53,32 @@ export default function IdleLock({ mode, email, passwordSalt }: Props) {
         body: JSON.stringify({ email, password: pw }),
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data.mode === "FULL") {
-          const { key } = await deriveVaultKey(pw, Buffer.from(passwordSalt, "base64"));
-          setVaultKey(key, passwordSalt);
-        }
-        setPw("");
-        setLocked(false);
-        resetTimer();
-      } else {
+      if (!res.ok) {
         setError("Incorrect password. Try again.");
+        return;
       }
+
+      const data = await res.json();
+
+      // Refuse to unlock if the entered credential downgraded the session
+      // (e.g. decoy PIN entered on a locked FULL-mode screen). The locked
+      // page still has FULL-mode data in memory; quietly switching cookies
+      // would let a coercer view that data with only the decoy code.
+      if (data.mode !== mode) {
+        setPw("");
+        await fetch("/api/auth/logout", { method: "POST" });
+        clearVaultKey();
+        window.location.replace("/login");
+        return;
+      }
+
+      if (mode === "FULL") {
+        const { key } = await deriveVaultKey(pw, Buffer.from(passwordSalt, "base64"));
+        setVaultKey(key, passwordSalt);
+      }
+      setPw("");
+      setLocked(false);
+      resetTimer();
     } catch {
       setError("Something went wrong.");
     } finally {
