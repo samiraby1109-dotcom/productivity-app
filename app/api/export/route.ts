@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { requireFullSession, apiError } from "@/lib/server-session";
 import { createServiceClient } from "@/lib/db";
 import { verifyPassword } from "@/lib/auth";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 /**
  * POST /api/export
@@ -11,6 +12,13 @@ import { verifyPassword } from "@/lib/auth";
 export async function POST(req: NextRequest) {
   try {
     const session = await requireFullSession(req);
+
+    // The endpoint re-verifies the password; without a rate limit a stolen
+    // session cookie could be used to brute-force the password at speed.
+    const ip = getClientIp(req);
+    const allowed = await checkRateLimit(`export:${session.userId}:${ip}`, 5);
+    if (!allowed) return apiError(429, "Too many requests. Please wait a minute.");
+
     const body = await req.json() as {
       password: string;
       filters?: {

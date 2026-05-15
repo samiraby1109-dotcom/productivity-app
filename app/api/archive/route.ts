@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { requireFullSession, apiError } from "@/lib/server-session";
 import { createServiceClient } from "@/lib/db";
 import { verifyPassword } from "@/lib/auth";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 // ─── GET /api/archive — list archived entries ─────────────────────────────────
 export async function GET(req: NextRequest) {
@@ -92,6 +93,11 @@ export async function POST(req: NextRequest) {
     if (action === "purge") {
       // Permanent delete — requires password re-entry
       if (!password) return apiError(400, "Password required");
+
+      // Rate-limit the password check to block brute force via a stolen cookie.
+      const ip = getClientIp(req);
+      const allowed = await checkRateLimit(`purge:${session.userId}:${ip}`, 5);
+      if (!allowed) return apiError(429, "Too many requests. Please wait a minute.");
 
       const { data: user } = await db
         .from("users")
