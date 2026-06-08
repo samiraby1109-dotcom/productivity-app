@@ -19,7 +19,7 @@ export async function GET(req: Request) {
     const db = createServiceClient();
     const { data: user } = await db
       .from("users")
-      .select("password_hint")
+      .select("password_hint, vmk_wrapped, vmk_wrapped_iv, vmk_salt")
       .eq("id", session.userId)
       .single();
 
@@ -29,6 +29,11 @@ export async function GET(req: Request) {
       mode: session.mode,
       passwordSalt: session.passwordSalt,
       passwordHint: user?.password_hint ?? null,
+      // Wrapped VMK is ciphertext, not a secret — the password is still needed
+      // to unwrap it. Returned in FULL mode only (DECOY never gets it above).
+      vmkWrapped: user?.vmk_wrapped ?? null,
+      vmkWrappedIv: user?.vmk_wrapped_iv ?? null,
+      vmkSalt: user?.vmk_salt ?? null,
     });
   } catch {
     return apiError(401, "Unauthorized");
