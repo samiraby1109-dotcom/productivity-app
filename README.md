@@ -147,6 +147,7 @@ The `vercel.json` configures the daily purge cron at 4:00 AM UTC.
 - Server stores only: the wrapped VMK copies + a slow client-side PBKDF2 lookup hash per code — never the password, the VMK, or a plaintext code
 - Reset flow: enter a code → unwrap the VMK locally → set a new password → re-wrap. Existing entries stay readable because the VMK is unchanged. Codes are single-use.
 - Trade-off (deliberate): a recovery code is a second key to the vault, so it must be kept off-device — the onboarding screen says so explicitly
+- Existing accounts (created before this feature) enrol or regenerate codes under **Tools → Recovery codes** (re-enter password → re-wrap the in-memory key → new codes); the client self-checks the re-wrap before saving so a forgotten-password reset can never orphan content
 
 ### Decoy Mode
 
@@ -214,7 +215,7 @@ object-src 'none'
 
 - [ ] Argon2id WASM preferred over PBKDF2 — upgrade post-MVP
 - [ ] In-memory lockout store resets on server restart — use Redis/DB in production
-- [ ] Recovery codes are issued to new accounts at onboarding; enrolling *existing* accounts still needs a settings screen (re-wrap their key and issue codes)
+- [x] Recovery codes: issued at onboarding for new accounts; existing accounts enrol/regenerate under Tools → Recovery codes
 - [ ] Biometric lock is not implemented (delegated to OS screen lock)
 - [ ] Argon2id requires WASM which needs `unsafe-eval` in CSP — switch to nonces in production
 - [ ] Media download/decryption UI is not yet implemented (metadata visible, download requires further work)

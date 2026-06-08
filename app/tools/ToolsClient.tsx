@@ -17,6 +17,7 @@ const TOOLS = [
   { href: "/tools/safety", icon: "🛡", label: "Safety Plan", desc: "Planning ahead" },
   { href: "/tools/guides", icon: "📖", label: "Guides", desc: "Understand what's happening" },
   { href: "/tools/export", icon: "📤", label: "Export", desc: "Download your records" },
+  { href: "/tools/recovery", icon: "🔑", label: "Recovery codes", desc: "Backup access if you forget your password" },
 ];
 
 export default function ToolsClient({ mode, email, passwordSalt }: Props) {
