@@ -40,6 +40,17 @@ function timingSafeEqual(a: string, b: string): boolean {
   return result === 0;
 }
 
+// ─── Secrets ──────────────────────────────────────────────────────────────────
+// Secret used to HMAC the decoy PIN. Must match across register/login/seed so a
+// stored decoy hash verifies. Like getSessionSecret() in session.ts, this hard
+// fails in production rather than silently falling back to a known dev value.
+export function getDecoySecret(): string {
+  if (process.env.NODE_ENV === "production" && !process.env.SESSION_SECRET) {
+    throw new Error("SESSION_SECRET env var must be set in production. Generate with: openssl rand -base64 32");
+  }
+  return process.env.SESSION_SECRET ?? "dev-secret";
+}
+
 // ─── Decoy code hashing ───────────────────────────────────────────────────────
 // Decoy code is a 4-digit PIN; we store it hashed with HMAC+PBKDF2
 export async function hashDecoyCode(code: string, secret: string): Promise<string> {

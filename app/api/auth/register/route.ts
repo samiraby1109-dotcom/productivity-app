@@ -4,6 +4,7 @@ import {
   hashPassword,
   hashDecoyCode,
   generatePasswordSalt,
+  getDecoySecret,
 } from "@/lib/auth";
 import { signSession, sessionCookieOptions } from "@/lib/session";
 import { apiError, requireJsonBody } from "@/lib/server-session";
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest) {
       Promise.resolve(generatePasswordSalt()),
     ]);
 
-    const decoySecret = process.env.SESSION_SECRET ?? "dev-secret";
+    const decoySecret = getDecoySecret();
     const decoyCodeHash = await hashDecoyCode(decoyCode, decoySecret);
 
     // Create user
