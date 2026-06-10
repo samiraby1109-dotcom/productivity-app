@@ -7,6 +7,7 @@ import {
   wrapVmkWithSecret,
   generateRecoveryCodes,
   recoveryLookupHash,
+  CODE_KEK_ITERATIONS,
 } from "@/lib/crypto";
 import { formatRecoveryCode } from "@/lib/recovery-format";
 
@@ -66,7 +67,9 @@ export default function OnboardingPage() {
       const codes = generateRecoveryCodes();
       const recoveryPayload = await Promise.all(
         codes.map(async (code) => {
-          const rc = await wrapVmkWithSecret(vmk, code);
+          // Code-grade KDF cost — high-entropy secrets don't need password-grade
+          // stretching, and there are ten of these on the signup critical path.
+          const rc = await wrapVmkWithSecret(vmk, code, CODE_KEK_ITERATIONS);
           const codeHash = await recoveryLookupHash(code, email.trim());
           return { codeHash, wrapped: rc.wrapped, iv: rc.iv, salt: rc.salt };
         })

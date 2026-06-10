@@ -229,16 +229,36 @@ export async function sha256Hex(data: ArrayBuffer | string): Promise<string> {
 // Because the VMK itself never changes, a recovery code can be used to set a new
 // password (re-wrapping the VMK) WITHOUT losing access to existing ciphertext.
 
-const KEK_ITERATIONS = 310_000;
+// Passwords are low-entropy and need full-strength stretching. Recovery codes
+// carry ~49 bits of entropy (10 chars over a 30-char alphabet), so a lighter
+// KDF still leaves offline brute-force far out of reach — and onboarding wraps
+// the VMK under ten of them, so per-code cost dominates perceived signup time.
+export const PASSWORD_KEK_ITERATIONS = 310_000;
+export const CODE_KEK_ITERATIONS = 50_000;
 
 export interface WrappedVmk {
-  wrapped: string; // base64 — VMK wrapped with a secret-derived KEK
+  // "<iterations>:<base64>" — self-describing, like the password_hash format.
+  // Bare base64 (no prefix) is a legacy blob wrapped at 310k iterations.
+  wrapped: string;
   iv: string;      // base64
   salt: string;    // base64 — PBKDF2 salt for the KEK
 }
 
+function parseWrapped(wrapped: string): { iterations: number; b64: string } {
+  const idx = wrapped.indexOf(":");
+  if (idx > 0) {
+    const it = parseInt(wrapped.slice(0, idx), 10);
+    if (Number.isFinite(it) && it > 0) return { iterations: it, b64: wrapped.slice(idx + 1) };
+  }
+  return { iterations: PASSWORD_KEK_ITERATIONS, b64: wrapped };
+}
+
 /** Derive a wrap/unwrap key (KEK) from a secret (password or recovery code). */
-async function deriveKek(secret: string, salt: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
+async function deriveKek(
+  secret: string,
+  salt: Uint8Array<ArrayBuffer>,
+  iterations: number
+): Promise<CryptoKey> {
   const keyMaterial = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(secret),
@@ -247,7 +267,7 @@ async function deriveKek(secret: string, salt: Uint8Array<ArrayBuffer>): Promise
     ["deriveKey"]
   );
   return crypto.subtle.deriveKey(
-    { name: "PBKDF2", salt, iterations: KEK_ITERATIONS, hash: "SHA-256" },
+    { name: "PBKDF2", salt, iterations, hash: "SHA-256" },
     keyMaterial,
     { name: "AES-GCM", length: KEY_LENGTH },
     false,
@@ -281,20 +301,25 @@ export async function importVmkFromRaw(raw: ArrayBuffer): Promise<CryptoKey> {
 }
 
 /** Wrap the VMK under a secret (password or recovery code). */
-export async function wrapVmkWithSecret(vmk: CryptoKey, secret: string): Promise<WrappedVmk> {
+export async function wrapVmkWithSecret(
+  vmk: CryptoKey,
+  secret: string,
+  iterations: number = PASSWORD_KEK_ITERATIONS
+): Promise<WrappedVmk> {
   const salt = crypto.getRandomValues(new Uint8Array(SALT_BYTES));
   const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
-  const kek = await deriveKek(secret, salt);
+  const kek = await deriveKek(secret, salt, iterations);
   const wrapped = await crypto.subtle.wrapKey("raw", vmk, kek, { name: "AES-GCM", iv });
-  return { wrapped: toBase64(wrapped), iv: toBase64(iv), salt: toBase64(salt) };
+  return { wrapped: `${iterations}:${toBase64(wrapped)}`, iv: toBase64(iv), salt: toBase64(salt) };
 }
 
 /** Unwrap the VMK using a secret. Throws if the secret is wrong (GCM auth fail). */
 export async function unwrapVmkWithSecret(blob: WrappedVmk, secret: string): Promise<CryptoKey> {
-  const kek = await deriveKek(secret, fromBase64(blob.salt));
+  const { iterations, b64 } = parseWrapped(blob.wrapped);
+  const kek = await deriveKek(secret, fromBase64(blob.salt), iterations);
   return crypto.subtle.unwrapKey(
     "raw",
-    fromBase64(blob.wrapped),
+    fromBase64(b64),
     kek,
     { name: "AES-GCM", iv: fromBase64(blob.iv) },
     { name: "AES-GCM", length: KEY_LENGTH },
@@ -332,7 +357,11 @@ function randomAlphabetChar(): string {
  * server-side as an opaque string; the wrapped VMK still requires the real code
  * to unwrap, so a leaked lookup hash never yields plaintext content.
  */
-export async function recoveryLookupHash(normalizedCode: string, email: string): Promise<string> {
+export async function recoveryLookupHash(
+  normalizedCode: string,
+  email: string,
+  iterations: number = CODE_KEK_ITERATIONS
+): Promise<string> {
   const enc = new TextEncoder();
   const saltSeed = await crypto.subtle.digest(
     "SHA-256",
@@ -346,7 +375,7 @@ export async function recoveryLookupHash(normalizedCode: string, email: string):
     ["deriveBits"]
   );
   const bits = await crypto.subtle.deriveBits(
-    { name: "PBKDF2", salt: new Uint8Array(saltSeed), iterations: KEK_ITERATIONS, hash: "SHA-256" },
+    { name: "PBKDF2", salt: new Uint8Array(saltSeed), iterations, hash: "SHA-256" },
     keyMaterial,
     256
   );

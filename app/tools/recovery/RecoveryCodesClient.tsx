@@ -11,6 +11,7 @@ import {
   decryptPayload,
   generateRecoveryCodes,
   recoveryLookupHash,
+  CODE_KEK_ITERATIONS,
 } from "@/lib/crypto";
 import { formatRecoveryCode } from "@/lib/recovery-format";
 
@@ -61,7 +62,7 @@ export default function RecoveryCodesClient({ mode, email, passwordSalt }: Props
       const fresh = generateRecoveryCodes();
       const recoveryPayload = await Promise.all(
         fresh.map(async (code) => {
-          const rc = await wrapVmkWithSecret(vaultKey, code);
+          const rc = await wrapVmkWithSecret(vaultKey, code, CODE_KEK_ITERATIONS);
           const codeHash = await recoveryLookupHash(code, email);
           return { codeHash, wrapped: rc.wrapped, iv: rc.iv, salt: rc.salt };
         })

@@ -5,6 +5,8 @@ import {
   unwrapVmkWithSecret,
   wrapVmkWithSecret,
   recoveryLookupHash,
+  CODE_KEK_ITERATIONS,
+  PASSWORD_KEK_ITERATIONS,
 } from "@/lib/crypto";
 import { normalizeRecoveryCode, isValidRecoveryCodeShape } from "@/lib/recovery-format";
 
@@ -19,10 +21,10 @@ export default function RecoverPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // The VMK (unwrapped client-side from the code) and the normalized code are
-  // held only in memory, only between the two steps.
+  // The VMK (unwrapped client-side from the code) and the lookup hash that
+  // matched are held only in memory, only between the two steps.
   const [vmk, setVmk] = useState<CryptoKey | null>(null);
-  const [normCode, setNormCode] = useState("");
+  const [matchedHash, setMatchedHash] = useState("");
 
   async function handleVerify(e: React.FormEvent) {
     e.preventDefault();
@@ -34,24 +36,34 @@ export default function RecoverPage() {
     setLoading(true);
     try {
       const normalized = normalizeRecoveryCode(code);
-      const lookupHash = await recoveryLookupHash(normalized, email.trim());
-      const res = await fetch("/api/auth/recover", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "fetch", email: email.trim(), lookupHash }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "That email and recovery code don't match.");
+
+      // Current codes hash at the code-grade cost; codes issued before the KDF
+      // tuning hashed at the password-grade cost, so retry once on a miss.
+      let matched: { lookupHash: string; data: { vmkWrapped: string; vmkWrappedIv: string; rcSalt: string } } | null = null;
+      for (const iterations of [CODE_KEK_ITERATIONS, PASSWORD_KEK_ITERATIONS]) {
+        const lookupHash = await recoveryLookupHash(normalized, email.trim(), iterations);
+        const res = await fetch("/api/auth/recover", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "fetch", email: email.trim(), lookupHash }),
+        });
+        if (res.ok) {
+          matched = { lookupHash, data: await res.json() };
+          break;
+        }
+      }
+      if (!matched) {
+        setError("That email and recovery code don't match.");
         return;
       }
+
       // Unwrap locally with the real code — proves the code and yields the VMK.
       const key = await unwrapVmkWithSecret(
-        { wrapped: data.vmkWrapped, iv: data.vmkWrappedIv, salt: data.rcSalt },
+        { wrapped: matched.data.vmkWrapped, iv: matched.data.vmkWrappedIv, salt: matched.data.rcSalt },
         normalized
       );
       setVmk(key);
-      setNormCode(normalized);
+      setMatchedHash(matched.lookupHash);
       setPhase("newpw");
     } catch {
       setError("That email and recovery code don't match.");
@@ -81,7 +93,7 @@ export default function RecoverPage() {
       // Re-wrap the same VMK under the new password — existing entries stay
       // readable because the key itself is unchanged.
       const rewrapped = await wrapVmkWithSecret(vmk, newPassword);
-      const lookupHash = await recoveryLookupHash(normCode, email.trim());
+      const lookupHash = matchedHash;
       const res = await fetch("/api/auth/recover", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -9,6 +9,8 @@ import {
   importVmkFromRaw,
   encryptPayload,
   decryptPayload,
+  CODE_KEK_ITERATIONS,
+  PASSWORD_KEK_ITERATIONS,
 } from "../lib/crypto";
 import {
   normalizeRecoveryCode,
@@ -44,6 +46,32 @@ describe("VMK wrap/unwrap", () => {
     expect(a.salt).not.toBe(b.salt);
     expect(a.iv).not.toBe(b.iv);
     expect(a.wrapped).not.toBe(b.wrapped);
+  });
+
+  it("self-describes the KDF cost in the wrapped string", async () => {
+    const vmk = await generateVaultMasterKey();
+    const pw = await wrapVmkWithSecret(vmk, "secret");
+    const code = await wrapVmkWithSecret(vmk, "secret", CODE_KEK_ITERATIONS);
+    expect(pw.wrapped.startsWith(`${PASSWORD_KEK_ITERATIONS}:`)).toBe(true);
+    expect(code.wrapped.startsWith(`${CODE_KEK_ITERATIONS}:`)).toBe(true);
+  });
+
+  it("round-trips at code-grade iterations", async () => {
+    const vmk = await generateVaultMasterKey();
+    const blob = await wrapVmkWithSecret(vmk, "WXYZ234567", CODE_KEK_ITERATIONS);
+    const unwrapped = await unwrapVmkWithSecret(blob, "WXYZ234567");
+    const enc = await encryptPayload({ n: 7 }, vmk);
+    expect((await decryptPayload<{ n: number }>(enc, unwrapped)).n).toBe(7);
+  });
+
+  it("unwraps legacy blobs (bare base64, no iterations prefix) at 310k", async () => {
+    const vmk = await generateVaultMasterKey();
+    const blob = await wrapVmkWithSecret(vmk, "legacy-pass", PASSWORD_KEK_ITERATIONS);
+    // Simulate a blob stored before the prefix existed.
+    const legacy = { ...blob, wrapped: blob.wrapped.split(":")[1] };
+    const unwrapped = await unwrapVmkWithSecret(legacy, "legacy-pass");
+    const enc = await encryptPayload({ legacy: "yes" }, vmk);
+    expect((await decryptPayload<{ legacy: string }>(enc, unwrapped)).legacy).toBe("yes");
   });
 });
 
@@ -98,6 +126,14 @@ describe("recoveryLookupHash", () => {
     const a = await recoveryLookupHash("ABCDE12345", "User@Example.com");
     const b = await recoveryLookupHash("ABCDE12345", "user@example.com");
     expect(a).toBe(b);
+  });
+
+  it("differs by iteration count (legacy 310k vs current 50k)", async () => {
+    const current = await recoveryLookupHash("ABCDE12345", "user@example.com");
+    const explicit = await recoveryLookupHash("ABCDE12345", "user@example.com", CODE_KEK_ITERATIONS);
+    const legacy = await recoveryLookupHash("ABCDE12345", "user@example.com", PASSWORD_KEK_ITERATIONS);
+    expect(current).toBe(explicit); // default is code-grade
+    expect(current).not.toBe(legacy); // recovery page retries with legacy cost
   });
 });
 
