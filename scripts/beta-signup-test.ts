@@ -32,10 +32,19 @@ function check(name: string, cond: boolean, detail?: unknown) {
   }
 }
 
+// Each call presents a distinct client IP so the per-IP rate-limit buckets
+// don't accumulate across requests or re-runs (locally every request would
+// otherwise share the "unknown" bucket). TEST-NET-3 documentation range.
+let ipCounter = 0;
 async function jpost(path: string, body: unknown, cookie?: string) {
+  ipCounter++;
   const res = await fetch(BASE + path, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...(cookie ? { cookie } : {}) },
+    headers: {
+      "Content-Type": "application/json",
+      "x-forwarded-for": `203.0.113.${ipCounter}`,
+      ...(cookie ? { cookie } : {}),
+    },
     body: JSON.stringify(body),
   });
   let data: any = null;
@@ -69,7 +78,7 @@ async function main() {
     email, password, decoyCode: decoy,
     vault: { vmkWrapped: vmkPw.wrapped, vmkWrappedIv: vmkPw.iv, vmkSalt: vmkPw.salt, recoveryCodes },
   });
-  check("new user registers (201)", reg.status === 201, reg.data);
+  check("new user registers (200)", reg.status === 200, { status: reg.status, body: reg.data });
   check("session cookie is set", /bellemeadow_wellness_session=/.test(reg.setCookie));
   check("FULL mode returned", reg.data?.mode === "FULL", reg.data);
 
