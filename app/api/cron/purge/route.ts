@@ -24,6 +24,17 @@ export async function GET(req: NextRequest) {
     const db = createServiceClient();
     const now = new Date().toISOString();
 
+    // Sweep stale rate-limit windows. Buckets are keyed by unix minute and only
+    // the current minute is ever read, but nothing deleted old rows, so the
+    // table grew without bound. Keep an hour of slack; best-effort and runs
+    // even when no entries are due below.
+    const staleWindow = Math.floor(Date.now() / 60_000) - 60;
+    const { error: rlError } = await db
+      .from("rate_limits")
+      .delete()
+      .lt("window_start", staleWindow);
+    if (rlError) console.warn("Purge cron: rate_limits sweep failed:", rlError.message);
+
     // Find entries due for purge
     const { data: due, error: fetchError } = await db
       .from("archive_queue")

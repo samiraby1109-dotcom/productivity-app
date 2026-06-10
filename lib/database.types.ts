@@ -215,6 +215,24 @@ export interface Database {
         };
         Relationships: Relationship[];
       };
+      rate_limits: {
+        Row: {
+          key: string;
+          window_start: number;
+          count: number;
+        };
+        Insert: {
+          key: string;
+          window_start: number;
+          count?: number;
+        };
+        Update: {
+          key?: string;
+          window_start?: number;
+          count?: number;
+        };
+        Relationships: Relationship[];
+      };
       archive_queue: {
         Row: {
           entry_id: string;
