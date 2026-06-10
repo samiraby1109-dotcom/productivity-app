@@ -13,10 +13,9 @@ import { cn } from "@/lib/utils";
 interface Props {
   mode: "FULL" | "DECOY";
   children: React.ReactNode;
-  onLogout?: () => void;
 }
 
-export default function NavShell({ mode, children, onLogout }: Props) {
+export default function NavShell({ mode, children }: Props) {
   const pathname = usePathname();
 
   async function handleLogout() {

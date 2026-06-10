@@ -6,7 +6,8 @@ import {
   DECOY_ALLOWED_ROUTES,
 } from "./lib/constants";
 
-export async function middleware(req: NextRequest) {
+// Next 16 proxy convention (renamed from middleware.ts; behavior unchanged).
+export default async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Allow static files and Next.js internals

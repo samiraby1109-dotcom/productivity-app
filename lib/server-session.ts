@@ -1,7 +1,7 @@
 /**
  * Helpers for reading session from server components and API routes.
  */
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { verifySession, type SessionPayload } from "./session";
 import { SESSION_COOKIE_NAME } from "./constants";
 import { createServiceClient } from "./db";

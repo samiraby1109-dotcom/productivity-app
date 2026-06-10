@@ -62,12 +62,13 @@ export default function ContactsClient({ mode, email, passwordSalt }: Props) {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   const loadContacts = useCallback(async () => {
-    const vaultKey = getVaultKey();
-    if (!vaultKey) { setLoadStatus("error"); return; }
-
     try {
       const res = await fetch("/api/contacts");
       if (!res.ok) { setLoadStatus("error"); return; }
+      // Key check after the first await: keeps every setState in an async
+      // continuation (no synchronous setState when the effect invokes this).
+      const vaultKey = getVaultKey();
+      if (!vaultKey) { setLoadStatus("error"); return; }
       const { contacts: raw } = await res.json() as { contacts: RawContact[] };
 
       const decrypted: Contact[] = [];
@@ -91,6 +92,7 @@ export default function ContactsClient({ mode, email, passwordSalt }: Props) {
     }
   }, []);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- standard fetch-in-effect; all setStates are post-await
   useEffect(() => { loadContacts(); }, [loadContacts]);
 
   function openAdd() {

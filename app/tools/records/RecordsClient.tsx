@@ -73,8 +73,10 @@ export default function RecordsClient({ mode, email, passwordSalt }: Props) {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [toast, setToast] = useState("");
 
+  // The spinner is switched on in the filter-change handler (and starts true
+  // for the initial load) so this never sets state synchronously when invoked
+  // from the effect — every setState below sits behind the await.
   const fetchRecords = useCallback(async () => {
-    setLoading(true);
     const res = await fetch(`/api/records?${buildQuery(filters, 0)}`);
     if (res.ok) {
       const data = await res.json();
@@ -84,7 +86,13 @@ export default function RecordsClient({ mode, email, passwordSalt }: Props) {
     setLoading(false);
   }, [filters]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- standard fetch-in-effect; all setStates are post-await
   useEffect(() => { fetchRecords(); }, [fetchRecords]);
+
+  function handleFiltersChange(f: FilterState) {
+    setLoading(true);
+    setFilters(f);
+  }
 
   async function loadMore() {
     setLoadingMore(true);
@@ -144,7 +152,7 @@ export default function RecordsClient({ mode, email, passwordSalt }: Props) {
           </Link>
         </div>
 
-        <RecordFilters filters={filters} onChange={setFilters} />
+        <RecordFilters filters={filters} onChange={handleFiltersChange} />
 
         {loading ? (
           <div className="text-center py-12 text-gray-400 text-sm">Loading…</div>

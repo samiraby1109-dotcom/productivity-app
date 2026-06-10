@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
 
     // Fetch media metadata for entries with attachments
     const entryIds = (entries ?? []).filter((e) => e.has_attachments).map((e) => e.id);
-    let mediaMap: Record<string, unknown[]> = {};
+    const mediaMap: Record<string, unknown[]> = {};
 
     if (entryIds.length > 0) {
       const { data: media } = await db

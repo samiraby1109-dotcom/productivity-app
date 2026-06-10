@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import { emailEnabled } from "../lib/email";
 import { signVerifyToken, verifyVerifyToken } from "../lib/verify-token";
 

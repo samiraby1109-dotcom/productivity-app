@@ -4,21 +4,9 @@ import { createServiceClient } from "@/lib/db";
 import { v4 as uuidv4 } from "uuid";
 import type { MediaKind } from "@/lib/constants";
 
-const ALLOWED_MIME: Record<string, MediaKind> = {
-  "image/jpeg": "IMAGE",
-  "image/png": "IMAGE",
-  "image/heic": "IMAGE",
-  "image/heif": "IMAGE",
-  "video/mp4": "VIDEO",
-  "video/quicktime": "VIDEO",
-  "audio/mpeg": "AUDIO",
-  "audio/mp4": "AUDIO",
-  "audio/wav": "AUDIO",
-  "audio/x-m4a": "AUDIO",
-  // encrypted blobs arrive as octet-stream; kind is provided by client
-  "application/octet-stream": "IMAGE",
-};
-
+// No server-side MIME allowlist here: blobs are encrypted client-side and
+// always stored as application/octet-stream; the declared mime_type is display
+// metadata only, and the storage bucket's allowed_mime_types is the real gate.
 const MAX_SIZE = 100 * 1024 * 1024; // 100 MB
 
 // POST /api/media/upload
