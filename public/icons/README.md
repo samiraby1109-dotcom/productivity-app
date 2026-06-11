@@ -1,14 +1,22 @@
 # Icons
 
-`icon-192.png` and `icon-512.png` are checked in as procedurally-generated
-placeholders (brand color #0ea5e9 with a simple white checkmark). They satisfy
-the PWA install requirement so manifest validation passes and the app gets a
-non-broken icon on home screen / Add to Home Screen flows.
+All icons here (plus `/favicon.ico`) are generated procedurally — no design
+tooling or external services required:
 
-Replace before launch:
-- 192x192 PNG → `icon-192.png`
-- 512x512 PNG → `icon-512.png`
-- Both should be opaque, "any maskable" safe (keep content within an 80% center square).
+```bash
+node scripts/generate-icons.mjs
+```
 
-Generate production icons at https://realfavicongenerator.net or with any
-designed asset run through `pwa-asset-generator`.
+The motif (sun over meadow, brand sky palette) is deliberately neutral and
+wellness-generic, consistent with the app's public positioning. Variants:
+
+| File | Purpose |
+|---|---|
+| `icon-192.png`, `icon-512.png` | manifest `purpose: "any"` — rounded corners, transparent outside |
+| `icon-maskable-192.png`, `icon-maskable-512.png` | manifest `purpose: "maskable"` — full-bleed, motif inside the 78% safe zone |
+| `apple-touch-icon.png` | 180×180 full-bleed (iOS applies its own corner mask) |
+| `/favicon.ico` | 32×32 BMP-in-ICO |
+
+To swap in designed assets later, replace the files and keep the same names
+and dimensions; keep maskable art within the centre ~80% safe zone and keep
+the imagery neutral.

@@ -5,7 +5,10 @@
  * Quick Exit must work offline — /dashboard is pre-cached.
  */
 
-const CACHE_NAME = "bellemeadow-wellness-shell-v2";
+// v3: SW now ignores cross-origin/non-GET requests entirely. The bump drops
+// caches written by older versions whose catch-all could store cross-origin
+// responses (e.g. encrypted media downloads) in Cache Storage.
+const CACHE_NAME = "bellemeadow-wellness-shell-v3";
 
 // App shell: static routes and assets only. /dashboard is intentionally NOT
 // pre-cached because it is server-rendered with the current session — caching
@@ -45,6 +48,14 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
+
+  // Only manage same-origin GETs. Anything else (Supabase REST/storage,
+  // mutations) streams straight to the network: the catch-all below must never
+  // persist vault ciphertext or signed-URL responses into Cache Storage, and
+  // cache.put() on non-GET requests throws anyway.
+  if (request.method !== "GET" || url.origin !== self.location.origin) {
+    return;
+  }
 
   // Never cache API responses — always go to network
   if (url.pathname.startsWith("/api/")) {
