@@ -58,6 +58,16 @@ export const INCIDENT_TYPES = [
 
 export type IncidentTypeKey = (typeof INCIDENT_TYPES)[number]["key"];
 
+// Presentation grouping for the entry form so 17 options aren't one daunting
+// wall. Keys reference INCIDENT_TYPES; every key appears exactly once.
+export const INCIDENT_TYPE_GROUPS: { label: string; keys: IncidentTypeKey[] }[] = [
+  { label: "Physical & sexual", keys: ["PHYSICAL_VIOLENCE", "STRANGULATION", "SEXUAL_VIOLENCE", "REPRODUCTIVE_CONTROL"] },
+  { label: "Emotional & psychological", keys: ["THREATS_INTIMIDATION", "EMOTIONAL_VERBAL", "GASLIGHTING_MANIPULATION", "PROPERTY_DAMAGE"] },
+  { label: "Control & isolation", keys: ["COERCIVE_CONTROL", "ISOLATION", "STALKING", "TECH_ABUSE_SURVEILLANCE"] },
+  { label: "Financial & work", keys: ["FINANCIAL_ECONOMIC", "WORK_SCHOOL_SABOTAGE"] },
+  { label: "Children & legal", keys: ["CHILD_RELATED_CONTROL", "CUSTODY_INTERFERENCE", "LEGAL_SYSTEMS_ABUSE"] },
+];
+
 // ─── Entry Status ─────────────────────────────────────────────────────────────
 export const ENTRY_STATUS = {
   ACTIVE: "ACTIVE",

@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import NavShell from "@/components/NavShell";
 import IdleLock from "@/components/IdleLock";
+import { getVaultKey, encryptPayload, decryptPayload, type EncryptedBlob } from "@/lib/crypto";
 
 interface Props {
   mode: "FULL" | "DECOY";
@@ -47,30 +48,52 @@ export default function SafetyClient({ mode, email, passwordSalt }: Props) {
     fundSaved: "",
   });
 
-  // Load from localStorage once on mount. A lazy useState initializer would
-  // read it during SSR-mismatched first render; doing it post-mount keeps
-  // server and client markup identical, at the cost of one extra render.
-  useEffect(() => {
+  // The plan (go-bag progress, escape-fund amounts, notes) is encrypted at rest
+  // with the vault key — never written as plaintext. It stays device-local; the
+  // encryption just means a confiscated/forensically-imaged phone, or a decoy
+  // session, can't read it.
+  const persist = useCallback(async (next: SafetyState) => {
     try {
-      const raw = localStorage.getItem(storageKey(email));
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional one-time hydration from external store
-      if (raw) setState(JSON.parse(raw));
+      const key = getVaultKey();
+      if (!key) return; // no key in memory → skip rather than write plaintext
+      const blob = await encryptPayload(next, key);
+      localStorage.setItem(storageKey(email), JSON.stringify(blob));
     } catch {
-      // ignore parse errors
+      // storage full or unavailable
     }
   }, [email]);
 
-  const save = useCallback(
-    (next: SafetyState) => {
-      setState(next);
+  const save = useCallback((next: SafetyState) => {
+    setState(next);
+    void persist(next);
+  }, [persist]);
+
+  // Load + decrypt on mount; migrate any legacy plaintext to ciphertext.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
       try {
-        localStorage.setItem(storageKey(email), JSON.stringify(next));
+        const raw = localStorage.getItem(storageKey(email));
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.checked)) {
+          // Legacy plaintext — adopt it, then immediately re-save encrypted.
+          await Promise.resolve();
+          if (!cancelled) setState(parsed as SafetyState);
+          void persist(parsed as SafetyState);
+          return;
+        }
+        const key = getVaultKey();
+        if (key && parsed && typeof parsed.ciphertext === "string") {
+          const dec = await decryptPayload<SafetyState>(parsed as EncryptedBlob, key);
+          if (!cancelled) setState(dec);
+        }
       } catch {
-        // storage full or unavailable
+        // ignore parse/decrypt errors
       }
-    },
-    [email]
-  );
+    })();
+    return () => { cancelled = true; };
+  }, [email, persist]);
 
   function toggleItem(item: string) {
     const checked = state.checked.includes(item)
@@ -90,8 +113,9 @@ export default function SafetyClient({ mode, email, passwordSalt }: Props) {
   const goal = parseFloat(state.fundGoal) || 0;
   const saved = parseFloat(state.fundSaved) || 0;
   const pct = goal > 0 ? Math.min(saved / goal, 1) : 0;
+  // Calm, encouraging ramp — no red "you're behind" signal at low progress.
   const barColor =
-    pct >= 1 ? "bg-green-500" : pct >= 0.5 ? "bg-amber-400" : "bg-rose-400";
+    pct >= 1 ? "bg-brand-600" : pct >= 0.5 ? "bg-brand-500" : "bg-brand-300";
 
   return (
     <>

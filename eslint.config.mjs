@@ -9,6 +9,7 @@ const eslintConfig = [
       ".next/**",
       "node_modules/**",
       "public/sw.js", // plain service-worker script, not part of the app graph
+      "scripts/**",   // dev/test harnesses, run via tsx — not shipped app code
     ],
   },
   ...nextCoreWebVitals,

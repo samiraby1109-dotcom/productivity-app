@@ -37,6 +37,8 @@ export default function DashboardClient({ mode, email, passwordSalt, showWelcome
   const [newTask, setNewTask] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [showNudge, setShowNudge] = useState(showWelcomeNudge);
+  const [newHabit, setNewHabit] = useState("");
+  const [editingHabits, setEditingHabits] = useState(false);
 
   // Load from IndexedDB
   useEffect(() => {
@@ -117,9 +119,30 @@ export default function DashboardClient({ mode, email, passwordSalt, showWelcome
     }));
   }, []);
 
+  const addHabit = useCallback(() => {
+    const label = newHabit.trim();
+    if (!label) return;
+    setData((d) => ({
+      ...d,
+      habits: [...d.habits, { id: uuidv4(), label, done: false }],
+      updatedAt: new Date().toISOString(),
+    }));
+    setNewHabit("");
+  }, [newHabit]);
+
+  const removeHabit = useCallback((id: string) => {
+    setData((d) => ({
+      ...d,
+      habits: d.habits.filter((h) => h.id !== id),
+      updatedAt: new Date().toISOString(),
+    }));
+  }, []);
+
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long", month: "long", day: "numeric",
   });
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
   const completedCount = data.tasks.filter((t) => t.done).length;
 
@@ -140,11 +163,12 @@ export default function DashboardClient({ mode, email, passwordSalt, showWelcome
       )}
       <IdleLock mode={mode} email={email} passwordSalt={passwordSalt} />
       <NavShell mode={mode}>
-        {/* Date heading */}
+        {/* Greeting */}
         <div className="mb-6">
-          <h1 className="text-xl font-semibold text-gray-900">{today}</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">{greeting}</h1>
+          <p className="text-sm text-gray-400 mt-0.5">{today}</p>
           {data.tasks.length > 0 && (
-            <p className="text-sm text-gray-500 mt-0.5">
+            <p className="text-sm text-gray-500 mt-1">
               {completedCount} of {data.tasks.length} tasks done
             </p>
           )}
@@ -218,22 +242,53 @@ export default function DashboardClient({ mode, email, passwordSalt, showWelcome
 
         {/* Habits */}
         <section className="mb-6">
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Habits</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Habits</h2>
+            <button
+              onClick={() => setEditingHabits((v) => !v)}
+              className="text-xs text-gray-400 hover:text-brand-600 transition-colors"
+            >
+              {editingHabits ? "Done" : "Edit"}
+            </button>
+          </div>
           <div className="grid grid-cols-3 gap-2">
             {data.habits.map((habit) => (
-              <button
-                key={habit.id}
-                onClick={() => toggleHabit(habit.id)}
-                className={`py-3 rounded-xl text-sm font-medium transition-all ${
-                  habit.done
-                    ? "bg-brand-500 text-white shadow-sm"
-                    : "bg-white border border-gray-200 text-gray-600 hover:border-brand-300"
-                }`}
-              >
-                {habit.label}
-              </button>
+              <div key={habit.id} className="relative">
+                <button
+                  onClick={() => toggleHabit(habit.id)}
+                  disabled={editingHabits}
+                  className={`w-full py-3 rounded-xl text-sm font-medium transition-all ${
+                    habit.done
+                      ? "bg-brand-500 text-white shadow-sm"
+                      : "bg-white border border-gray-200 text-gray-600 hover:border-brand-300"
+                  }`}
+                >
+                  {habit.label}
+                </button>
+                {editingHabits && (
+                  <button
+                    onClick={() => removeHabit(habit.id)}
+                    aria-label={`Remove ${habit.label}`}
+                    className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gray-200 text-gray-600 hover:bg-red-100 hover:text-red-500 flex items-center justify-center shadow-sm"
+                  >
+                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
+                  </button>
+                )}
+              </div>
             ))}
           </div>
+          {editingHabits && (
+            <form onSubmit={(e) => { e.preventDefault(); addHabit(); }} className="flex gap-2 mt-2">
+              <input
+                value={newHabit}
+                onChange={(e) => setNewHabit(e.target.value)}
+                placeholder="Add a habit…"
+                maxLength={24}
+                className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition"
+              />
+              <button type="submit" className="px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 transition-colors">Add</button>
+            </form>
+          )}
         </section>
 
         {/* Notes */}

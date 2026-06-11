@@ -4,7 +4,9 @@ import { useRouter } from "next/navigation";
 import NavShell from "@/components/NavShell";
 import IdleLock from "@/components/IdleLock";
 import TrustedContactNudgeModal from "@/components/TrustedContactNudgeModal";
-import { INCIDENT_TYPES, type IncidentTypeKey } from "@/lib/constants";
+import { INCIDENT_TYPES, INCIDENT_TYPE_GROUPS, type IncidentTypeKey } from "@/lib/constants";
+
+const labelFor = (k: IncidentTypeKey) => INCIDENT_TYPES.find((t) => t.key === k)?.label.split(" (")[0] ?? k;
 import { encryptPayload, getVaultKey } from "@/lib/crypto";
 import { generateFileKey, wrapFileKey, encryptFile } from "@/lib/crypto";
 import { v4 as uuidv4 } from "uuid";
@@ -165,33 +167,63 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
           <h1 className="text-lg font-semibold text-gray-900">New entry</h1>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Incident types */}
+        <p className="text-sm text-gray-500 mb-5 leading-relaxed">
+          Take your time. Add only what you want — even a short note helps.
+        </p>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Notes — the primary field */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              What happened? <span className="font-normal text-gray-400">(select all that apply)</span>
+            <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1.5">
+              What happened?
             </label>
-            <div className="flex flex-wrap gap-1.5">
-              {INCIDENT_TYPES.map((t) => (
-                <button
-                  key={t.key}
-                  type="button"
-                  onClick={() => toggleType(t.key as IncidentTypeKey)}
-                  className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                    incidentTypes.includes(t.key as IncidentTypeKey)
-                      ? "bg-brand-100 text-brand-700 ring-1 ring-brand-300"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
-                >
-                  {t.label.split(" (")[0]}
-                </button>
+            <textarea
+              id="notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={7}
+              placeholder="Describe it in your own words, at your own pace…"
+              className="w-full px-3.5 py-3 rounded-xl border border-gray-200 text-[15px] text-gray-800 leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-brand-500 transition"
+            />
+            <p className="text-xs text-gray-400 mt-1.5">Encrypted on your device before it&apos;s saved.</p>
+          </div>
+
+          {/* Categories — optional, grouped to feel lighter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Add categories <span className="font-normal text-gray-400">(optional)</span>
+            </label>
+            <p className="text-xs text-gray-400 mb-3">Tags make entries easier to find and export later.</p>
+            <div className="space-y-3">
+              {INCIDENT_TYPE_GROUPS.map((g) => (
+                <div key={g.label}>
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400 mb-1.5">{g.label}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {g.keys.map((k) => (
+                      <button
+                        key={k}
+                        type="button"
+                        onClick={() => toggleType(k)}
+                        className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                          incidentTypes.includes(k)
+                            ? "bg-brand-100 text-brand-700 ring-1 ring-brand-300"
+                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        }`}
+                      >
+                        {labelFor(k)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           </div>
 
-          {/* Flags */}
+          {/* Flags — optional */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Details</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Anything relevant? <span className="font-normal text-gray-400">(optional)</span>
+            </label>
             <div className="flex flex-wrap gap-2">
               {[
                 { label: "Police involved", value: flagsPolice, set: setFlagsPolice },
@@ -212,21 +244,6 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
                 </button>
               ))}
             </div>
-          </div>
-
-          {/* Notes */}
-          <div>
-            <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
-              Notes <span className="font-normal text-gray-400">(encrypted)</span>
-            </label>
-            <textarea
-              id="notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={6}
-              placeholder="Describe what happened in your own words…"
-              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-800 resize-none focus:outline-none focus:ring-2 focus:ring-brand-500 transition"
-            />
           </div>
 
           {/* File attachments */}

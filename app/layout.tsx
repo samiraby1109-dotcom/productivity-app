@@ -19,15 +19,16 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#0ea5e9",
+  themeColor: "#4f6b54",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <head>
-        <link rel="icon" href="/favicon.ico" sizes="any" />
-        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+        <link rel="icon" href="/favicon.ico" sizes="32x32" />
+        <link rel="icon" type="image/png" href="/icons/icon-192.png" sizes="192x192" />
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="BelleMeadow Wellness" />
