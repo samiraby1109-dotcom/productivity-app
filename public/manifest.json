@@ -6,8 +6,8 @@
   "start_url": "/login",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f9fafb",
-  "theme_color": "#0ea5e9",
+  "background_color": "#faf9f6",
+  "theme_color": "#4f6b54",
   "orientation": "portrait",
   "categories": ["productivity", "utilities"],
   "icons": [

@@ -8,7 +8,9 @@
   }
 
   body {
-    @apply bg-gray-50 text-gray-900 antialiased;
+    /* warm-charcoal text (not pure black) on the warm sand background */
+    @apply bg-gray-50 text-gray-800 antialiased;
+    letter-spacing: -0.005em;
   }
 
   * {

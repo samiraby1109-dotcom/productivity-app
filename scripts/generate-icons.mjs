@@ -106,11 +106,11 @@ const smooth = (edge0, edge1, x) => {
 };
 const hex = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
 
-const SKY_TOP = hex("#38bdf8");   // sky-400
-const SKY_BOTTOM = hex("#0369a1"); // sky-700
-const SUN = hex("#fefce8");        // warm white
-const HILL_BACK = hex("#bae6fd");  // sky-200
-const HILL_FRONT = hex("#f0f9ff"); // sky-50
+const SKY_TOP = hex("#a7c4ad");    // pale sage
+const SKY_BOTTOM = hex("#5f7f63"); // sage
+const SUN = hex("#fdf6e3");        // warm cream
+const HILL_BACK = hex("#cfe0cf");  // pale sage
+const HILL_FRONT = hex("#f2efe6"); // sand / cream
 
 /** Motif color at art-space coords (u,v) ∈ [0,1]²; coords may exceed range. */
 function art(u, v) {
