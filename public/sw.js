@@ -63,8 +63,11 @@ self.addEventListener("fetch", (event) => {
     url.pathname === "/dashboard" ||
     url.pathname.startsWith("/dashboard/")
   ) {
+    // caches.match returns a Promise, so the fallback must live inside .then —
+    // `caches.match("/") ?? x` is always the promise and can resolve undefined,
+    // which makes respondWith fail with a network error instead of this page.
     event.respondWith(fetch(request).catch(() => {
-      return caches.match("/") ?? new Response("Offline", { status: 503 });
+      return caches.match("/").then((cached) => cached ?? new Response("Offline", { status: 503 }));
     }));
     return;
   }

@@ -1,8 +1,8 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { setVaultKey, deriveVaultKey } from "@/lib/crypto";
+import { unlockVaultFromMe } from "@/lib/crypto";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -34,17 +34,12 @@ export default function LoginPage() {
         return;
       }
 
-      // For FULL mode: derive vault key from password and store in memory
+      // For FULL mode: unwrap the vault key into memory. /api/auth/me returns
+      // the wrapped VMK (or, for legacy accounts, the password salt).
       if (data.mode === "FULL") {
-        // We need the salt; fetch from /api/auth/me after cookie is set
-        // The salt is in the session; we fetch it to derive the key
         const meRes = await fetch("/api/auth/me");
         if (meRes.ok) {
-          const meData = await meRes.json();
-          if (meData.passwordSalt) {
-            const { key } = await deriveVaultKey(password, Buffer.from(meData.passwordSalt, "base64"));
-            setVaultKey(key, meData.passwordSalt);
-          }
+          await unlockVaultFromMe(password, await meRes.json());
         }
       }
 
@@ -169,6 +164,13 @@ export default function LoginPage() {
           New here?{" "}
           <Link href="/onboarding" className="text-brand-600 hover:underline font-medium">
             Create an account
+          </Link>
+        </p>
+
+        {/* Recovery */}
+        <p className="mt-2 text-center text-xs text-gray-400">
+          <Link href="/recover" className="hover:text-gray-600 hover:underline">
+            Lost access? Use a recovery code
           </Link>
         </p>
       </div>

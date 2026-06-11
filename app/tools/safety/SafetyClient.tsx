@@ -47,10 +47,13 @@ export default function SafetyClient({ mode, email, passwordSalt }: Props) {
     fundSaved: "",
   });
 
-  // Load from localStorage once on mount
+  // Load from localStorage once on mount. A lazy useState initializer would
+  // read it during SSR-mismatched first render; doing it post-mount keeps
+  // server and client markup identical, at the cost of one extra render.
   useEffect(() => {
     try {
       const raw = localStorage.getItem(storageKey(email));
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional one-time hydration from external store
       if (raw) setState(JSON.parse(raw));
     } catch {
       // ignore parse errors

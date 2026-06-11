@@ -1,9 +1,17 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { deriveVaultKey, setVaultKey } from "@/lib/crypto";
+import {
+  setVaultKey,
+  generateVaultMasterKey,
+  wrapVmkWithSecret,
+  generateRecoveryCodes,
+  recoveryLookupHash,
+  CODE_KEK_ITERATIONS,
+} from "@/lib/crypto";
+import { formatRecoveryCode } from "@/lib/recovery-format";
 
-type Step = "account" | "decoy" | "disclosure";
+type Step = "account" | "decoy" | "disclosure" | "recovery";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -16,6 +24,8 @@ export default function OnboardingPage() {
   const [confirmDecoy, setConfirmDecoy] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
+  const [savedConfirmed, setSavedConfirmed] = useState(false);
 
   function validateAccount() {
     if (!email.trim()) return "Email is required.";
@@ -50,6 +60,21 @@ export default function OnboardingPage() {
     setLoading(true);
     setError("");
     try {
+      // Generate the Vault Master Key and recovery codes entirely client-side.
+      // The server only ever receives wrapped/hashed material.
+      const vmk = await generateVaultMasterKey();
+      const vmkPw = await wrapVmkWithSecret(vmk, password);
+      const codes = generateRecoveryCodes();
+      const recoveryPayload = await Promise.all(
+        codes.map(async (code) => {
+          // Code-grade KDF cost — high-entropy secrets don't need password-grade
+          // stretching, and there are ten of these on the signup critical path.
+          const rc = await wrapVmkWithSecret(vmk, code, CODE_KEK_ITERATIONS);
+          const codeHash = await recoveryLookupHash(code, email.trim());
+          return { codeHash, wrapped: rc.wrapped, iv: rc.iv, salt: rc.salt };
+        })
+      );
+
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -58,6 +83,12 @@ export default function OnboardingPage() {
           password,
           passwordHint: passwordHint.trim() || undefined,
           decoyCode,
+          vault: {
+            vmkWrapped: vmkPw.wrapped,
+            vmkWrappedIv: vmkPw.iv,
+            vmkSalt: vmkPw.salt,
+            recoveryCodes: recoveryPayload,
+          },
         }),
       });
       const data = await res.json();
@@ -68,17 +99,11 @@ export default function OnboardingPage() {
         return;
       }
 
-      // Derive vault key and store in memory for the session
-      const meRes = await fetch("/api/auth/me");
-      if (meRes.ok) {
-        const meData = await meRes.json();
-        if (meData.passwordSalt) {
-          const { key } = await deriveVaultKey(password, Buffer.from(meData.passwordSalt, "base64"));
-          setVaultKey(key, meData.passwordSalt);
-        }
-      }
-
-      router.replace("/dashboard?welcome=1");
+      // Store the vault key in memory for this session, then show the codes.
+      setVaultKey(vmk, vmkPw.salt);
+      setRecoveryCodes(codes);
+      setLoading(false);
+      setStep("recovery");
     } catch {
       setError("Something went wrong. Please try again.");
       setLoading(false);
@@ -91,20 +116,22 @@ export default function OnboardingPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Create your BelleMeadow Wellness</h1>
-          <div className="flex justify-center gap-2 mt-3">
-            {(["account", "decoy", "disclosure"] as Step[]).map((s, i) => (
-              <div
-                key={s}
-                className={`h-1.5 rounded-full transition-all duration-300 ${
-                  step === s
-                    ? "w-8 bg-brand-500"
-                    : i < ["account", "decoy", "disclosure"].indexOf(step)
-                    ? "w-4 bg-brand-300"
-                    : "w-4 bg-gray-200"
-                }`}
-              />
-            ))}
-          </div>
+          {step !== "recovery" && (
+            <div className="flex justify-center gap-2 mt-3">
+              {(["account", "decoy", "disclosure"] as Step[]).map((s, i) => (
+                <div
+                  key={s}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    step === s
+                      ? "w-8 bg-brand-500"
+                      : i < ["account", "decoy", "disclosure"].indexOf(step)
+                      ? "w-4 bg-brand-300"
+                      : "w-4 bg-gray-200"
+                  }`}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Step 1: Account */}
@@ -285,6 +312,53 @@ export default function OnboardingPage() {
                 {loading ? "Creating…" : "I understand, start"}
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Step 4: Recovery codes (shown once) */}
+        {step === "recovery" && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
+            <h2 className="font-semibold text-gray-900">Save your recovery codes</h2>
+            <p className="text-sm text-gray-500">
+              If you ever forget your password, these codes are the only way back
+              into your account — and they keep your existing entries readable.
+              Each code works once.
+            </p>
+
+            <div className="grid grid-cols-2 gap-2 bg-gray-50 border border-gray-200 rounded-xl p-4 font-mono text-sm text-gray-800">
+              {recoveryCodes.map((c) => (
+                <div key={c} className="tracking-wider text-center">{formatRecoveryCode(c)}</div>
+              ))}
+            </div>
+
+            <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 text-sm text-amber-900 leading-relaxed">
+              <p className="font-medium">Keep them off this device</p>
+              <p className="mt-1">
+                Write them on paper and store them somewhere private — ideally not
+                in this phone, and not anywhere someone else could find them. Avoid
+                screenshots. No one can recover your account or your entries without
+                one of these codes.
+              </p>
+            </div>
+
+            <label className="flex items-start gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={savedConfirmed}
+                onChange={(e) => setSavedConfirmed(e.target.checked)}
+                className="mt-0.5"
+              />
+              <span>I&apos;ve saved my recovery codes somewhere safe.</span>
+            </label>
+
+            <button
+              type="button"
+              disabled={!savedConfirmed}
+              onClick={() => router.replace("/dashboard?welcome=1")}
+              className="w-full py-2.5 rounded-xl bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 disabled:opacity-50 transition-colors"
+            >
+              Continue
+            </button>
           </div>
         )}
       </div>

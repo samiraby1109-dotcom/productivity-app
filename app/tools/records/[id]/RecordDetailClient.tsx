@@ -229,6 +229,7 @@ export default function RecordDetailClient({ id, mode, email, passwordSalt }: Pr
             </button>
 
             {viewing.kind === "IMAGE" && (
+              // eslint-disable-next-line @next/next/no-img-element -- decrypted blob: URL; next/image can't optimize it
               <img
                 src={viewing.url}
                 alt="Attachment"

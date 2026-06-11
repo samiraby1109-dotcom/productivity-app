@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { v4 as uuidv4 } from "uuid";
 import NavShell from "@/components/NavShell";
@@ -46,11 +46,40 @@ export default function DashboardClient({ mode, email, passwordSalt, showWelcome
     });
   }, []);
 
-  // Save to IndexedDB on change
+  // Save to IndexedDB on change, debounced — the notes textarea otherwise
+  // issues a full write per keystroke. Pending writes are flushed when the tab
+  // hides or unmounts so Quick Exit / app close can't drop the last keystrokes.
+  const latestData = useRef(data);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
+    latestData.current = data;
     if (!loaded) return;
-    saveTrackerData(data);
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      saveTimer.current = null;
+      saveTrackerData(latestData.current);
+    }, 500);
   }, [data, loaded]);
+
+  useEffect(() => {
+    function flush() {
+      if (saveTimer.current) {
+        clearTimeout(saveTimer.current);
+        saveTimer.current = null;
+        saveTrackerData(latestData.current);
+      }
+    }
+    function onVisibility() {
+      if (document.visibilityState === "hidden") flush();
+    }
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onVisibility);
+      flush();
+    };
+  }, []);
 
   const addTask = useCallback(() => {
     if (!newTask.trim()) return;

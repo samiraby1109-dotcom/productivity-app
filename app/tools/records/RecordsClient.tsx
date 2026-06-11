@@ -29,6 +29,35 @@ const EMPTY_FILTERS: FilterState = {
   status: "ACTIVE",
 };
 
+const PAGE_SIZE = 50;
+
+// Value check (not reference equality — RecordFilters' Clear button passes its
+// own object) so the empty state can distinguish "no records" from "filtered".
+function hasActiveFilters(f: FilterState): boolean {
+  return !!(
+    f.from || f.to ||
+    f.police !== null || f.children !== null || f.witness !== null ||
+    f.attachments !== null ||
+    f.types.length > 0 ||
+    f.status !== "ACTIVE"
+  );
+}
+
+function buildQuery(filters: FilterState, offset: number): string {
+  const params = new URLSearchParams();
+  params.set("status", filters.status);
+  params.set("limit", String(PAGE_SIZE));
+  params.set("offset", String(offset));
+  if (filters.from) params.set("from", filters.from);
+  if (filters.to) params.set("to", filters.to);
+  if (filters.police !== null) params.set("police", String(filters.police));
+  if (filters.children !== null) params.set("children", String(filters.children));
+  if (filters.witness !== null) params.set("witness", String(filters.witness));
+  if (filters.attachments !== null) params.set("attachments", String(filters.attachments));
+  filters.types.forEach((t) => params.append("type", t));
+  return params.toString();
+}
+
 interface Props {
   mode: "FULL" | "DECOY";
   email: string;
@@ -38,31 +67,48 @@ interface Props {
 export default function RecordsClient({ mode, email, passwordSalt }: Props) {
   const [records, setRecords] = useState<RecordRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [toast, setToast] = useState("");
 
+  // The spinner is switched on in the filter-change handler (and starts true
+  // for the initial load) so this never sets state synchronously when invoked
+  // from the effect — every setState below sits behind the await.
   const fetchRecords = useCallback(async () => {
-    setLoading(true);
-    const params = new URLSearchParams();
-    params.set("status", filters.status);
-    if (filters.from) params.set("from", filters.from);
-    if (filters.to) params.set("to", filters.to);
-    if (filters.police !== null) params.set("police", String(filters.police));
-    if (filters.children !== null) params.set("children", String(filters.children));
-    if (filters.witness !== null) params.set("witness", String(filters.witness));
-    if (filters.attachments !== null) params.set("attachments", String(filters.attachments));
-    filters.types.forEach((t) => params.append("type", t));
-
-    const res = await fetch(`/api/records?${params.toString()}`);
+    const res = await fetch(`/api/records?${buildQuery(filters, 0)}`);
     if (res.ok) {
       const data = await res.json();
       setRecords(data.records ?? []);
+      setHasMore(!!data.hasMore);
     }
     setLoading(false);
   }, [filters]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- standard fetch-in-effect; all setStates are post-await
   useEffect(() => { fetchRecords(); }, [fetchRecords]);
+
+  function handleFiltersChange(f: FilterState) {
+    setLoading(true);
+    setFilters(f);
+  }
+
+  async function loadMore() {
+    setLoadingMore(true);
+    const res = await fetch(`/api/records?${buildQuery(filters, records.length)}`);
+    if (res.ok) {
+      const data = await res.json();
+      const fresh = (data.records ?? []) as RecordRow[];
+      setRecords((prev) => {
+        // Guard against duplicates if a row shifted pages between requests.
+        const seen = new Set(prev.map((r) => r.id));
+        return [...prev, ...fresh.filter((r) => !seen.has(r.id))];
+      });
+      setHasMore(!!data.hasMore);
+    }
+    setLoadingMore(false);
+  }
 
   async function handleDelete(id: string) {
     setDeleting(id);
@@ -106,13 +152,13 @@ export default function RecordsClient({ mode, email, passwordSalt }: Props) {
           </Link>
         </div>
 
-        <RecordFilters filters={filters} onChange={setFilters} />
+        <RecordFilters filters={filters} onChange={handleFiltersChange} />
 
         {loading ? (
           <div className="text-center py-12 text-gray-400 text-sm">Loading…</div>
         ) : records.length === 0 ? (
           <div className="text-center py-12 text-gray-400 text-sm">
-            {filters === EMPTY_FILTERS ? "No records yet. Add your first entry." : "No records match your filters."}
+            {hasActiveFilters(filters) ? "No records match your filters." : "No records yet. Add your first entry."}
           </div>
         ) : (
           <div className="space-y-2">
@@ -173,6 +219,16 @@ export default function RecordsClient({ mode, email, passwordSalt }: Props) {
                 </div>
               </div>
             ))}
+
+            {hasMore && (
+              <button
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="w-full py-2.5 rounded-xl bg-white border border-gray-200 text-sm font-medium text-gray-600 hover:border-brand-300 disabled:opacity-50 transition-colors"
+              >
+                {loadingMore ? "Loading…" : "Load more"}
+              </button>
+            )}
           </div>
         )}
       </NavShell>

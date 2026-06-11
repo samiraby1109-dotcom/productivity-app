@@ -6,7 +6,7 @@
  */
 import { useEffect, useRef, useState, useCallback } from "react";
 import { IDLE_TIMEOUT_MS } from "@/lib/constants";
-import { deriveVaultKey, setVaultKey, clearVaultKey } from "@/lib/crypto";
+import { clearVaultKey, unlockVaultFromMe } from "@/lib/crypto";
 
 interface Props {
   mode: "FULL" | "DECOY";
@@ -14,7 +14,7 @@ interface Props {
   passwordSalt: string;
 }
 
-export default function IdleLock({ mode, email, passwordSalt }: Props) {
+export default function IdleLock({ mode, email }: Props) {
   const [locked, setLocked] = useState(false);
   const [pw, setPw] = useState("");
   const [error, setError] = useState("");
@@ -73,8 +73,9 @@ export default function IdleLock({ mode, email, passwordSalt }: Props) {
       }
 
       if (mode === "FULL") {
-        const { key } = await deriveVaultKey(pw, Buffer.from(passwordSalt, "base64"));
-        setVaultKey(key, passwordSalt);
+        // Re-fetch the wrapped VMK and unwrap it with the entered password.
+        const meRes = await fetch("/api/auth/me");
+        if (meRes.ok) await unlockVaultFromMe(pw, await meRes.json());
       }
       setPw("");
       setLocked(false);

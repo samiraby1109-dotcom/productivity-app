@@ -6,7 +6,8 @@ import {
   DECOY_ALLOWED_ROUTES,
 } from "./lib/constants";
 
-export async function middleware(req: NextRequest) {
+// Next 16 proxy convention (renamed from middleware.ts; behavior unchanged).
+export default async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Allow static files and Next.js internals
@@ -54,13 +55,12 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  // FULL mode: inject session info into headers for server components
-  const res = NextResponse.next();
-  res.headers.set("x-session-user-id", session.userId);
-  res.headers.set("x-session-mode", session.mode);
-  res.headers.set("x-session-email", session.email);
-  res.headers.set("x-session-salt", session.passwordSalt);
-  return res;
+  // Session is valid. Server components re-read and verify the cookie
+  // themselves (see app/dashboard/page.tsx), so we must NOT attach session
+  // details here: headers set on NextResponse.next() are emitted on the
+  // response to the browser. Leaking x-session-mode in particular would reveal
+  // that a FULL/vault mode exists, undermining decoy plausible-deniability.
+  return NextResponse.next();
 }
 
 export const config = {

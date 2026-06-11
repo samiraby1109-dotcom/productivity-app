@@ -4,10 +4,10 @@
  * Token payload: { userId, email, purpose: "verify-email" }
  */
 import { SignJWT, jwtVerify } from "jose";
+import { getSessionSecret } from "./session";
 
-const SECRET = new TextEncoder().encode(
-  process.env.SESSION_SECRET ?? "dev-secret-32-chars-replace-in-prod!!"
-);
+// Share the session signing key (same env var, same production guard) instead
+// of re-reading SESSION_SECRET with a separate dev fallback.
 const EXPIRY = "24h";
 
 export interface VerifyTokenPayload {
@@ -21,12 +21,12 @@ export async function signVerifyToken(userId: string, email: string): Promise<st
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(EXPIRY)
-    .sign(SECRET);
+    .sign(getSessionSecret());
 }
 
 export async function verifyVerifyToken(token: string): Promise<VerifyTokenPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, SECRET, { algorithms: ["HS256"] });
+    const { payload } = await jwtVerify(token, getSessionSecret(), { algorithms: ["HS256"] });
     if (payload.purpose !== "verify-email") return null;
     return payload as unknown as VerifyTokenPayload;
   } catch {

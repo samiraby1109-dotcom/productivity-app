@@ -7,7 +7,7 @@ export const SESSION_MODES = {
 export type SessionMode = keyof typeof SESSION_MODES;
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
-export const PUBLIC_ROUTES = ["/", "/login", "/onboarding"];
+export const PUBLIC_ROUTES = ["/", "/login", "/onboarding", "/recover"];
 export const DECOY_ALLOWED_ROUTES = ["/dashboard"];
 export const FULL_ALLOWED_PREFIXES = [
   "/dashboard",

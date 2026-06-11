@@ -4,6 +4,7 @@ import {
   hashPassword,
   hashDecoyCode,
   generatePasswordSalt,
+  getDecoySecret,
 } from "@/lib/auth";
 import { signSession, sessionCookieOptions } from "@/lib/session";
 import { apiError, requireJsonBody } from "@/lib/server-session";
@@ -31,11 +32,20 @@ export async function POST(req: NextRequest) {
     if (ctError) return ctError;
 
     const body = await req.json();
-    const { email, password, passwordHint, decoyCode } = body as {
+    const { email, password, passwordHint, decoyCode, vault } = body as {
       email: string;
       password: string;
       passwordHint?: string;
       decoyCode: string;
+      // Client-computed wrapped Vault Master Key + recovery-code material. The
+      // server stores only these wrapped/hashed blobs; it never sees the VMK or
+      // the plaintext recovery codes.
+      vault?: {
+        vmkWrapped: string;
+        vmkWrappedIv: string;
+        vmkSalt: string;
+        recoveryCodes: { codeHash: string; wrapped: string; iv: string; salt: string }[];
+      };
     };
 
     // IP-based rate limit: 5 registrations per minute per IP
@@ -76,7 +86,7 @@ export async function POST(req: NextRequest) {
       Promise.resolve(generatePasswordSalt()),
     ]);
 
-    const decoySecret = process.env.SESSION_SECRET ?? "dev-secret";
+    const decoySecret = getDecoySecret();
     const decoyCodeHash = await hashDecoyCode(decoyCode, decoySecret);
 
     // Create user
@@ -88,6 +98,9 @@ export async function POST(req: NextRequest) {
         password_hint: passwordHint?.trim() || null,
         decoy_code_hash: decoyCodeHash,
         password_salt: passwordSalt,
+        vmk_wrapped: vault?.vmkWrapped ?? null,
+        vmk_wrapped_iv: vault?.vmkWrappedIv ?? null,
+        vmk_salt: vault?.vmkSalt ?? null,
       })
       .select("id, email, password_salt")
       .single();
@@ -95,6 +108,32 @@ export async function POST(req: NextRequest) {
     if (error || !user) {
       console.error("User creation error:", error);
       return apiError(500, "Registration failed");
+    }
+
+    // Persist recovery-code material (best-effort — codes can be regenerated
+    // later, so a failure here must not abort an otherwise-successful signup).
+    if (Array.isArray(vault?.recoveryCodes) && vault.recoveryCodes.length > 0) {
+      const rows = vault.recoveryCodes
+        .slice(0, 50)
+        .filter(
+          (c) =>
+            c &&
+            typeof c.codeHash === "string" &&
+            typeof c.wrapped === "string" &&
+            typeof c.iv === "string" &&
+            typeof c.salt === "string"
+        )
+        .map((c) => ({
+          user_id: user.id,
+          code_hash: c.codeHash,
+          vmk_wrapped: c.wrapped,
+          vmk_wrapped_iv: c.iv,
+          rc_salt: c.salt,
+        }));
+      if (rows.length > 0) {
+        const { error: rcError } = await db.from("recovery_codes").insert(rows);
+        if (rcError) console.error("Recovery codes insert error:", rcError);
+      }
     }
 
     // Issue FULL session

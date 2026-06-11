@@ -4,6 +4,11 @@
  * KDF: PBKDF2 (universally supported) with Argon2id WASM as preferred upgrade path.
  * All vault content is encrypted before leaving the browser.
  */
+import {
+  RECOVERY_ALPHABET,
+  RECOVERY_CODE_LENGTH,
+  RECOVERY_CODE_COUNT,
+} from "./recovery-format";
 
 const PBKDF2_ITERATIONS = 310_000; // NIST recommended minimum 2024
 const SALT_BYTES = 16;
@@ -214,6 +219,169 @@ export async function sha256Hex(data: ArrayBuffer | string): Promise<string> {
     .join("");
 }
 
+// ─── Vault Master Key (VMK) + recovery codes ──────────────────────────────────
+//
+// The VMK is the actual key that encrypts vault content. It is wrapped (AES-GCM
+// key-wrap) under a key derived from the password, AND under a key derived from
+// each recovery code. The server only ever stores wrapped copies — it never
+// sees the VMK, the password, or a recovery code in plaintext.
+//
+// Because the VMK itself never changes, a recovery code can be used to set a new
+// password (re-wrapping the VMK) WITHOUT losing access to existing ciphertext.
+
+// Passwords are low-entropy and need full-strength stretching. Recovery codes
+// carry ~49 bits of entropy (10 chars over a 30-char alphabet), so a lighter
+// KDF still leaves offline brute-force far out of reach — and onboarding wraps
+// the VMK under ten of them, so per-code cost dominates perceived signup time.
+export const PASSWORD_KEK_ITERATIONS = 310_000;
+export const CODE_KEK_ITERATIONS = 50_000;
+
+export interface WrappedVmk {
+  // "<iterations>:<base64>" — self-describing, like the password_hash format.
+  // Bare base64 (no prefix) is a legacy blob wrapped at 310k iterations.
+  wrapped: string;
+  iv: string;      // base64
+  salt: string;    // base64 — PBKDF2 salt for the KEK
+}
+
+function parseWrapped(wrapped: string): { iterations: number; b64: string } {
+  const idx = wrapped.indexOf(":");
+  if (idx > 0) {
+    const it = parseInt(wrapped.slice(0, idx), 10);
+    if (Number.isFinite(it) && it > 0) return { iterations: it, b64: wrapped.slice(idx + 1) };
+  }
+  return { iterations: PASSWORD_KEK_ITERATIONS, b64: wrapped };
+}
+
+/** Derive a wrap/unwrap key (KEK) from a secret (password or recovery code). */
+async function deriveKek(
+  secret: string,
+  salt: Uint8Array<ArrayBuffer>,
+  iterations: number
+): Promise<CryptoKey> {
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    "PBKDF2",
+    false,
+    ["deriveKey"]
+  );
+  return crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt, iterations, hash: "SHA-256" },
+    keyMaterial,
+    { name: "AES-GCM", length: KEY_LENGTH },
+    false,
+    ["wrapKey", "unwrapKey"]
+  );
+}
+
+/** Generate a fresh random 256-bit Vault Master Key. */
+export async function generateVaultMasterKey(): Promise<CryptoKey> {
+  return crypto.subtle.generateKey({ name: "AES-GCM", length: KEY_LENGTH }, true, [
+    "encrypt",
+    "decrypt",
+    "wrapKey",
+    "unwrapKey",
+  ]);
+}
+
+/** Export a key's raw bytes (used to adopt a legacy password-derived key as a VMK). */
+export async function exportKeyRaw(key: CryptoKey): Promise<ArrayBuffer> {
+  return crypto.subtle.exportKey("raw", key);
+}
+
+/** Import raw bytes as a VMK with full vault-key usages. */
+export async function importVmkFromRaw(raw: ArrayBuffer): Promise<CryptoKey> {
+  return crypto.subtle.importKey("raw", raw, { name: "AES-GCM", length: KEY_LENGTH }, true, [
+    "encrypt",
+    "decrypt",
+    "wrapKey",
+    "unwrapKey",
+  ]);
+}
+
+/** Wrap the VMK under a secret (password or recovery code). */
+export async function wrapVmkWithSecret(
+  vmk: CryptoKey,
+  secret: string,
+  iterations: number = PASSWORD_KEK_ITERATIONS
+): Promise<WrappedVmk> {
+  const salt = crypto.getRandomValues(new Uint8Array(SALT_BYTES));
+  const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
+  const kek = await deriveKek(secret, salt, iterations);
+  const wrapped = await crypto.subtle.wrapKey("raw", vmk, kek, { name: "AES-GCM", iv });
+  return { wrapped: `${iterations}:${toBase64(wrapped)}`, iv: toBase64(iv), salt: toBase64(salt) };
+}
+
+/** Unwrap the VMK using a secret. Throws if the secret is wrong (GCM auth fail). */
+export async function unwrapVmkWithSecret(blob: WrappedVmk, secret: string): Promise<CryptoKey> {
+  const { iterations, b64 } = parseWrapped(blob.wrapped);
+  const kek = await deriveKek(secret, fromBase64(blob.salt), iterations);
+  return crypto.subtle.unwrapKey(
+    "raw",
+    fromBase64(b64),
+    kek,
+    { name: "AES-GCM", iv: fromBase64(blob.iv) },
+    { name: "AES-GCM", length: KEY_LENGTH },
+    true,
+    ["encrypt", "decrypt", "wrapKey", "unwrapKey"]
+  );
+}
+
+/** Generate N high-entropy recovery codes (normalized form, no separators). */
+export function generateRecoveryCodes(count: number = RECOVERY_CODE_COUNT): string[] {
+  const codes: string[] = [];
+  for (let i = 0; i < count; i++) {
+    let code = "";
+    for (let j = 0; j < RECOVERY_CODE_LENGTH; j++) code += randomAlphabetChar();
+    codes.push(code);
+  }
+  return codes;
+}
+
+// Unbiased single-character pick from RECOVERY_ALPHABET via rejection sampling.
+function randomAlphabetChar(): string {
+  const n = RECOVERY_ALPHABET.length;
+  const max = 256 - (256 % n);
+  const buf = new Uint8Array(1);
+  for (;;) {
+    crypto.getRandomValues(buf);
+    if (buf[0] < max) return RECOVERY_ALPHABET[buf[0] % n];
+  }
+}
+
+/**
+ * Slow, deterministic lookup hash for a recovery code, derived client-side so
+ * the server never receives the plaintext code. Salted by the (lowercased)
+ * email so identical codes across accounts don't collide. Stored and compared
+ * server-side as an opaque string; the wrapped VMK still requires the real code
+ * to unwrap, so a leaked lookup hash never yields plaintext content.
+ */
+export async function recoveryLookupHash(
+  normalizedCode: string,
+  email: string,
+  iterations: number = CODE_KEK_ITERATIONS
+): Promise<string> {
+  const enc = new TextEncoder();
+  const saltSeed = await crypto.subtle.digest(
+    "SHA-256",
+    enc.encode("bellemeadow-recovery:" + email.toLowerCase().trim())
+  );
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(normalizedCode),
+    "PBKDF2",
+    false,
+    ["deriveBits"]
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt: new Uint8Array(saltSeed), iterations, hash: "SHA-256" },
+    keyMaterial,
+    256
+  );
+  return toBase64(bits);
+}
+
 // ─── Vault Key in Session Memory ─────────────────────────────────────────────
 // We store the derived vault key ONLY in memory (module-level WeakMap via closure)
 // so it never persists to storage. This key lives only for the session.
@@ -236,4 +404,33 @@ export function getVaultSalt(): string | null {
 export function clearVaultKey(): void {
   _vaultKey = null;
   _vaultSalt = null;
+}
+
+/**
+ * Acquire and store the in-memory vault key from a /api/auth/me payload.
+ *
+ * New/migrated accounts ship a wrapped VMK → unwrap it with the password.
+ * Legacy accounts (no VMK yet) fall back to the original password-derived key.
+ * Throws if the password can't unwrap the VMK (treat as a failed unlock).
+ */
+export interface MeVaultFields {
+  vmkWrapped?: string | null;
+  vmkWrappedIv?: string | null;
+  vmkSalt?: string | null;
+  passwordSalt?: string | null;
+}
+
+export async function unlockVaultFromMe(password: string, me: MeVaultFields): Promise<void> {
+  if (me.vmkWrapped && me.vmkWrappedIv && me.vmkSalt) {
+    const vmk = await unwrapVmkWithSecret(
+      { wrapped: me.vmkWrapped, iv: me.vmkWrappedIv, salt: me.vmkSalt },
+      password
+    );
+    setVaultKey(vmk, me.vmkSalt);
+    return;
+  }
+  if (me.passwordSalt) {
+    const { key } = await deriveVaultKey(password, fromBase64(me.passwordSalt));
+    setVaultKey(key, me.passwordSalt);
+  }
 }

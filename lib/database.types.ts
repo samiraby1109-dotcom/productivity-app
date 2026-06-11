@@ -32,6 +32,9 @@ export interface Database {
           email_verified_at: string | null;
           failed_attempts: number;
           locked_until: string | null;
+          vmk_wrapped: string | null;
+          vmk_wrapped_iv: string | null;
+          vmk_salt: string | null;
         };
         Insert: {
           id?: string;
@@ -44,6 +47,9 @@ export interface Database {
           email_verified_at?: string | null;
           failed_attempts?: number;
           locked_until?: string | null;
+          vmk_wrapped?: string | null;
+          vmk_wrapped_iv?: string | null;
+          vmk_salt?: string | null;
         };
         Update: {
           id?: string;
@@ -56,6 +62,9 @@ export interface Database {
           email_verified_at?: string | null;
           failed_attempts?: number;
           locked_until?: string | null;
+          vmk_wrapped?: string | null;
+          vmk_wrapped_iv?: string | null;
+          vmk_salt?: string | null;
         };
         Relationships: Relationship[];
       };
@@ -170,6 +179,57 @@ export interface Database {
           relationship?: string;
           encrypted_payload?: string;
           payload_version?: number;
+        };
+        Relationships: Relationship[];
+      };
+      recovery_codes: {
+        Row: {
+          id: string;
+          user_id: string;
+          code_hash: string;
+          vmk_wrapped: string;
+          vmk_wrapped_iv: string;
+          rc_salt: string;
+          used_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          code_hash: string;
+          vmk_wrapped: string;
+          vmk_wrapped_iv: string;
+          rc_salt: string;
+          used_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          code_hash?: string;
+          vmk_wrapped?: string;
+          vmk_wrapped_iv?: string;
+          rc_salt?: string;
+          used_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: Relationship[];
+      };
+      rate_limits: {
+        Row: {
+          key: string;
+          window_start: number;
+          count: number;
+        };
+        Insert: {
+          key: string;
+          window_start: number;
+          count?: number;
+        };
+        Update: {
+          key?: string;
+          window_start?: number;
+          count?: number;
         };
         Relationships: Relationship[];
       };

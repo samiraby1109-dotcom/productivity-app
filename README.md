@@ -128,6 +128,7 @@ The `vercel.json` configures the daily purge cron at 4:00 AM UTC.
 - Lockout: 5 failed attempts → 15-minute silent lockout (neutral error message)
 - Idle lock: 5-minute idle → requires password re-entry
 - Restart lock: app close/reopen → requires sign-in
+- Recovery: user-held one-time codes (issued at onboarding) re-wrap the vault key client-side, so a forgotten password can be reset **without losing encrypted entries** — the server never sees a code in plaintext (see "Account recovery" below)
 
 ### Encryption
 
@@ -137,6 +138,16 @@ The `vercel.json` configures the daily purge cron at 4:00 AM UTC.
 - **Media encryption:** AES-GCM 256-bit per-file key, key wrapped by vault key
 - **Server stores:** ciphertext only — server cannot read entry notes
 - **Unencrypted metadata:** `created_at`, `incident_types[]`, flag booleans, `has_attachments`, `status`
+
+### Account recovery (content-preserving)
+
+- Vault content is encrypted with a random **Vault Master Key (VMK)**, not the password directly
+- The VMK is wrapped (AES-GCM key-wrap) under a password-derived key **and** under each recovery code
+- Recovery codes are generated client-side, shown once at onboarding, and never stored on-device
+- Server stores only: the wrapped VMK copies + a slow client-side PBKDF2 lookup hash per code — never the password, the VMK, or a plaintext code
+- Reset flow: enter a code → unwrap the VMK locally → set a new password → re-wrap. Existing entries stay readable because the VMK is unchanged. Codes are single-use.
+- Trade-off (deliberate): a recovery code is a second key to the vault, so it must be kept off-device — the onboarding screen says so explicitly
+- Existing accounts (created before this feature) enrol or regenerate codes under **Tools → Recovery codes** (re-enter password → re-wrap the in-memory key → new codes); the client self-checks the re-wrap before saving so a forgotten-password reset can never orphan content
 
 ### Decoy Mode
 
@@ -193,7 +204,7 @@ object-src 'none'
 | Internet monitoring | App works offline; no DV keywords in metadata or URLs |
 | Server breach | Server only stores ciphertext; cannot decrypt |
 | Abuser forces deletion | 30-day archive buffer (disclosed at onboarding) |
-| Account takeover | No password reset flow (DEV mode only); lockout on 5 failed attempts |
+| Account takeover | No emailed reset link; recovery needs a user-held one-time code (never on-device); lockout on 5 failed attempts |
 | Browser history | Quick Exit uses replaceState; tools routes excluded from SW cache |
 | XSS | CSP headers; httpOnly cookies; no localStorage tokens |
 | CSRF | SameSite=Strict cookies; JSON API with Content-Type check |
@@ -204,7 +215,7 @@ object-src 'none'
 
 - [ ] Argon2id WASM preferred over PBKDF2 — upgrade post-MVP
 - [ ] In-memory lockout store resets on server restart — use Redis/DB in production
-- [ ] Password reset is disabled in DEV mode; implement secure out-of-band reset for production
+- [x] Recovery codes: issued at onboarding for new accounts; existing accounts enrol/regenerate under Tools → Recovery codes
 - [ ] Biometric lock is not implemented (delegated to OS screen lock)
 - [ ] Argon2id requires WASM which needs `unsafe-eval` in CSP — switch to nonces in production
 - [ ] Media download/decryption UI is not yet implemented (metadata visible, download requires further work)
@@ -234,7 +245,7 @@ object-src 'none'
 │   │   ├── guides/             # Education + glossary
 │   │   └── export/             # PDF/CSV/ZIP export
 │   └── api/
-│       ├── auth/               # login, logout, register, me, hint
+│       ├── auth/               # login, logout, register, me, hint, recover
 │       ├── records/            # CRUD + media list
 │       ├── archive/            # restore + permanent delete
 │       ├── media/              # upload + signed URL
@@ -279,8 +290,8 @@ Placeholder name. Neutral, diary-adjacent, does not suggest legal evidence or DV
 ### Why no Argon2id in MVP?
 Argon2id WASM requires `unsafe-eval` in CSP, and the WASM bundle adds ~300KB. MVP uses PBKDF2 at 310,000 iterations (above NIST minimums). Argon2id is the planned V2 upgrade.
 
-### Why no password reset?
-A password reset flow requires email and creates a recoverable link that an abuser could intercept or discover. DEV mode disables it entirely. Production should use an out-of-band, survivor-safe reset flow (e.g., backup recovery codes generated at onboarding).
+### Why no *emailed* password reset?
+An emailed reset link requires email and creates a recoverable link an abuser could intercept or discover. Instead, recovery uses **user-held one-time codes** generated at onboarding (see "Account recovery" above): the codes never touch email or the device, the server never sees them in plaintext, and using one preserves existing encrypted entries. This is the survivor-safe alternative to a reset link.
 
 ### Why fixed 30-day archive?
 Reducing this window under pressure ("just delete it forever") is a known coercion vector. The fixed window is disclosed upfront so it cannot be weaponized at the time of deletion. Users cannot shorten or lengthen it.

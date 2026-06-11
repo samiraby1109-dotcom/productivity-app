@@ -6,6 +6,7 @@ import {
   isLockedFromRow,
   recordFailedAttemptDb,
   clearAttemptsDb,
+  getDecoySecret,
 } from "@/lib/auth";
 import { signSession, sessionCookieOptions } from "@/lib/session";
 import { apiError, requireJsonBody } from "@/lib/server-session";
@@ -13,6 +14,12 @@ import { MAX_LOGIN_ATTEMPTS, LOCKOUT_DURATION_MS } from "@/lib/constants";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 const NEUTRAL_FAIL_MSG = "Check your credentials and try again.";
+
+// A well-formed but unused hash (200k iterations, matching real users) so the
+// "no such user" path spends the same PBKDF2 time as a real wrong-password
+// check. Without this, response latency reveals whether an email is registered
+// — a meaningful leak for a survivor whose mere use of the app is sensitive.
+const DUMMY_PASSWORD_HASH = `200000:${"0".repeat(32)}:${"0".repeat(128)}`;
 
 export async function POST(req: NextRequest) {
   try {
@@ -46,8 +53,10 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (!user) {
-      // No user — return the same neutral error as a wrong password and don't
-      // record anything (there's no row to record against).
+      // No user — return the same neutral error as a wrong password. Burn an
+      // equivalent PBKDF2 cycle first so timing doesn't reveal account
+      // existence. Don't record anything (there's no row to record against).
+      await verifyPassword(password, DUMMY_PASSWORD_HASH);
       return apiError(401, NEUTRAL_FAIL_MSG);
     }
 
@@ -56,7 +65,7 @@ export async function POST(req: NextRequest) {
       return apiError(401, NEUTRAL_FAIL_MSG);
     }
 
-    const decoySecret = process.env.SESSION_SECRET ?? "dev-secret";
+    const decoySecret = getDecoySecret();
 
     // Check decoy code first (4-digit PIN entered as password)
     const isDecoy = isDigitsOnly && verifyDecoyCode(password, user.decoy_code_hash, decoySecret);

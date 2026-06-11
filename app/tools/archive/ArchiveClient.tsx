@@ -32,6 +32,9 @@ export default function ArchiveClient({ mode, email, passwordSalt }: Props) {
   const [actionError, setActionError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState("");
+  // Snapshot of mount time for the days-until-purge labels — day granularity,
+  // so it doesn't need to tick, and render stays pure (no Date.now() in render).
+  const [now] = useState(() => Date.now());
 
   useEffect(() => {
     fetch("/api/archive")
@@ -86,7 +89,7 @@ export default function ArchiveClient({ mode, email, passwordSalt }: Props) {
 
   function daysUntilPurge(purgeAt: string | null): string {
     if (!purgeAt) return "";
-    const diff = Math.ceil((new Date(purgeAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    const diff = Math.ceil((new Date(purgeAt).getTime() - now) / (1000 * 60 * 60 * 24));
     return diff > 0 ? `Auto-removes in ${diff}d` : "Due for removal";
   }
 

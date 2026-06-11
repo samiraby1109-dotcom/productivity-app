@@ -2,7 +2,7 @@ import { SignJWT, jwtVerify } from "jose";
 import { SESSION_COOKIE_NAME, SESSION_MAX_AGE } from "./constants";
 import type { SessionMode } from "./constants";
 
-function getSessionSecret(): Uint8Array {
+export function getSessionSecret(): Uint8Array {
   if (process.env.NODE_ENV === "production" && !process.env.SESSION_SECRET) {
     throw new Error("SESSION_SECRET env var must be set in production. Generate with: openssl rand -base64 32");
   }
