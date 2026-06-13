@@ -5,7 +5,6 @@ import IdleLock from "@/components/IdleLock";
 import RecordFilters, { type FilterState } from "@/components/RecordFilters";
 import { getVaultKey, decryptPayload, unwrapFileKey, decryptFile, type EncryptedBlob, sha256Hex } from "@/lib/crypto";
 import { INCIDENT_TYPES } from "@/lib/constants";
-import { formatDate } from "@/lib/utils";
 
 interface Props {
   mode: "FULL" | "DECOY";
@@ -81,6 +80,49 @@ async function decryptMediaItem(media: MediaMeta, vaultKey: CryptoKey): Promise<
   return decryptFile(encBuf, fileKey);
 }
 
+/** Full date + time + timezone — courts want precise, contemporaneous timestamps. */
+function formatTimestamp(iso: string): string {
+  return new Date(iso).toLocaleString("en-US", {
+    year: "numeric", month: "short", day: "numeric",
+    hour: "numeric", minute: "2-digit", timeZoneName: "short",
+  });
+}
+
+/** Stable, order-independent serialization of an entry for hashing. */
+function canonicalEntry(e: DecryptedEntry, media: MediaMeta[] | undefined): string {
+  return JSON.stringify({
+    id: e.id,
+    recorded_at: e.created_at,
+    incident_types: [...e.incident_types].sort(),
+    police: e.flags_police,
+    children: e.flags_children,
+    witness: e.flags_witness,
+    notes: e.notes ?? "",
+    attachments: (media ?? [])
+      .map((m) => ({ id: m.id, kind: m.kind, size_bytes: m.size_bytes }))
+      .sort((a, b) => (a.id < b.id ? -1 : 1)),
+  });
+}
+
+/**
+ * SHA-256 each entry, then chain them in chronological order into one document
+ * hash. Any edit to wording, dates, order, or the attachment manifest — or any
+ * added/removed entry — changes the document hash, making the export tamper-evident.
+ */
+async function computeIntegrity(
+  entries: DecryptedEntry[],
+  mediaMap: Record<string, MediaMeta[]>
+): Promise<{ entryHashes: string[]; documentHash: string }> {
+  const entryHashes: string[] = [];
+  let chain = "";
+  for (const e of entries) {
+    const h = await sha256Hex(canonicalEntry(e, mediaMap[e.id]));
+    entryHashes.push(h);
+    chain = await sha256Hex(chain + h);
+  }
+  return { entryHashes, documentHash: entries.length ? chain : "(no entries)" };
+}
+
 export default function ExportClient({ mode, email, passwordSalt }: Props) {
   const [password, setPassword] = useState("");
   const [format, setFormat] = useState<ExportFormat>("csv");
@@ -90,6 +132,8 @@ export default function ExportClient({ mode, email, passwordSalt }: Props) {
   const [progress, setProgress] = useState("");
   const [error, setError] = useState("");
   const [done, setDone] = useState("");
+  const [declarantName, setDeclarantName] = useState("");
+  const [declarantState, setDeclarantState] = useState("");
 
   async function handleExport(e: React.FormEvent) {
     e.preventDefault();
@@ -161,13 +205,18 @@ export default function ExportClient({ mode, email, passwordSalt }: Props) {
         }
       }
 
+      // Chronological order is what a court timeline expects, and what the
+      // tamper-evidence hash chain is computed over.
+      decrypted.sort((a, b) => a.created_at.localeCompare(b.created_at));
+      const { entryHashes, documentHash } = await computeIntegrity(decrypted, mediaMap);
+
       if (format === "csv") {
         setProgress("Building CSV…");
-        await exportCsv(decrypted, disclaimer, exportedAt);
+        await exportCsv(decrypted, disclaimer, exportedAt, entryHashes, documentHash);
       } else if (format === "pdf") {
-        await exportPdf(decrypted, mediaMap, disclaimer, exportedAt, key);
+        await exportPdf(decrypted, mediaMap, disclaimer, exportedAt, key, entryHashes, documentHash);
       } else {
-        await exportZip(decrypted, mediaMap, disclaimer, exportedAt, key);
+        await exportZip(decrypted, mediaMap, disclaimer, exportedAt, key, entryHashes, documentHash);
       }
 
       setDone(`Export complete. ${decrypted.length} entries exported.`);
@@ -180,25 +229,37 @@ export default function ExportClient({ mode, email, passwordSalt }: Props) {
     }
   }
 
-  function buildCsvContent(entries: DecryptedEntry[], disclaimer: string, exportedAt: string): string {
-    const header = ["Date", "Incident Types", "Police", "Children", "Witness", "Has Attachments", "Notes", "ID"].join(",");
-    const rows = entries.map((e) => [
-      formatDate(e.created_at),
-      e.incident_types.map((k) => INCIDENT_TYPES.find((t) => t.key === k)?.label ?? k).join("; "),
+  function buildCsvContent(
+    entries: DecryptedEntry[], disclaimer: string, exportedAt: string,
+    entryHashes: string[], documentHash: string
+  ): string {
+    const header = ["Recorded At", "Incident Types", "Police", "Children", "Witness", "Has Attachments", "Notes", "Entry SHA-256", "ID"].join(",");
+    const rows = entries.map((e, i) => [
+      `"${formatTimestamp(e.created_at)}"`,
+      `"${e.incident_types.map((k) => INCIDENT_TYPES.find((t) => t.key === k)?.label ?? k).join("; ")}"`,
       e.flags_police ? "Yes" : "No",
       e.flags_children ? "Yes" : "No",
       e.flags_witness ? "Yes" : "No",
       e.has_attachments ? "Yes" : "No",
       `"${(e.notes ?? "").replace(/"/g, '""')}"`,
+      entryHashes[i] ?? "",
       e.id,
     ].join(","));
-    return [`# Exported: ${exportedAt}`, `# ${disclaimer}`, header, ...rows].join("\n");
+    return [
+      `# Exported: ${exportedAt}`,
+      `# ${disclaimer}`,
+      `# Document SHA-256 (chained over all entries in chronological order): ${documentHash}`,
+      header, ...rows,
+    ].join("\n");
   }
 
-  async function exportCsv(entries: DecryptedEntry[], disclaimer: string, exportedAt: string) {
-    const csv = buildCsvContent(entries, disclaimer, exportedAt);
+  async function exportCsv(
+    entries: DecryptedEntry[], disclaimer: string, exportedAt: string,
+    entryHashes: string[], documentHash: string
+  ) {
+    const csv = buildCsvContent(entries, disclaimer, exportedAt, entryHashes, documentHash);
     const hash = await sha256Hex(csv);
-    const manifest = `# SHA-256: ${hash}\n# File: export.csv\n# Exported: ${exportedAt}\n`;
+    const manifest = `# SHA-256 of file: ${hash}\n# Document SHA-256: ${documentHash}\n# File: export.csv\n# Exported: ${exportedAt}\n`;
     downloadFile(csv, "bellemeadow-wellness-export.csv", "text/csv");
     downloadFile(manifest, "bellemeadow-wellness-manifest.txt", "text/plain");
   }
@@ -208,34 +269,74 @@ export default function ExportClient({ mode, email, passwordSalt }: Props) {
     mediaMap: Record<string, MediaMeta[]>,
     disclaimer: string,
     exportedAt: string,
-    vaultKey: CryptoKey
+    vaultKey: CryptoKey,
+    entryHashes: string[],
+    documentHash: string
   ) {
     const { jsPDF } = await import("jspdf");
     const autoTable = (await import("jspdf-autotable")).default;
     const doc = new jsPDF({ unit: "pt", format: "letter" });
+    const M = 40;
+    const SAGE: [number, number, number] = [79, 107, 84];
 
-    doc.setFontSize(14);
-    doc.text("BelleMeadow Wellness — Record Timeline", 40, 40);
-    doc.setFontSize(9);
-    doc.setTextColor(120);
-    doc.text(`Exported: ${exportedAt}`, 40, 56);
-    doc.text(disclaimer, 40, 68);
+    // ── Cover + declaration ──
+    doc.setFontSize(16); doc.setTextColor(30);
+    doc.text("Personal Record Timeline", M, 52);
+    doc.setFontSize(9); doc.setTextColor(110);
+    doc.text(`Prepared: ${exportedAt}`, M, 70);
+    doc.text(`Entries: ${entries.length}`, M, 82);
+    if (entries.length) {
+      doc.text(
+        `Period: ${formatTimestamp(entries[0].created_at)}  —  ${formatTimestamp(entries[entries.length - 1].created_at)}`,
+        M, 94
+      );
+    }
 
+    let y = 124;
+    doc.setFontSize(12); doc.setTextColor(30); doc.text("Declaration", M, y); y += 18;
+    doc.setFontSize(10); doc.setTextColor(55);
+    [
+      `I, ${declarantName.trim() || "______________________________"}, declare as follows:`,
+      "",
+      "The records that follow are a true and accurate account of events that I",
+      "personally experienced and documented at or near the dates and times shown",
+      "for each entry. They have not been altered since I recorded them.",
+      "",
+      "I declare under penalty of perjury under the laws of the State of",
+      `${declarantState.trim() || "____________________"} that the foregoing is true and correct.`,
+    ].forEach((l) => { doc.text(l, M, y); y += 15; });
+    y += 14;
+    doc.text("Signature: ______________________________     Date: ____________________", M, y);
+    y += 26;
+    doc.setFontSize(8); doc.setTextColor(135);
+    doc.text("Template wording only — confirm the declaration your court requires with an attorney.", M, y);
+
+    // ── Timeline table ──
+    doc.addPage();
+    doc.setFontSize(13); doc.setTextColor(30); doc.text("Timeline of entries", M, 50);
     autoTable(doc, {
-      startY: 82,
-      head: [["Date", "Incident Types", "Police", "Children", "Witness", "Notes"]],
-      body: entries.map((e) => [
-        formatDate(e.created_at),
+      startY: 64,
+      head: [["#", "Recorded", "Types", "P", "C", "W", "Notes", "Ref"]],
+      body: entries.map((e, i) => [
+        String(i + 1),
+        formatTimestamp(e.created_at),
         e.incident_types.map((k) => INCIDENT_TYPES.find((t) => t.key === k)?.label?.split(" (")[0] ?? k).join("\n"),
-        e.flags_police ? "Yes" : "No",
-        e.flags_children ? "Yes" : "No",
-        e.flags_witness ? "Yes" : "No",
+        e.flags_police ? "Y" : "",
+        e.flags_children ? "Y" : "",
+        e.flags_witness ? "Y" : "",
         e.notes ?? "",
+        (entryHashes[i] ?? "").slice(0, 8),
       ]),
-      styles: { fontSize: 8, cellPadding: 4 },
-      columnStyles: { 5: { cellWidth: 160 } },
+      styles: { fontSize: 7.5, cellPadding: 3, valign: "top", overflow: "linebreak" },
+      headStyles: { fillColor: SAGE },
+      columnStyles: {
+        0: { cellWidth: 18 }, 1: { cellWidth: 104 },
+        3: { cellWidth: 14 }, 4: { cellWidth: 14 }, 5: { cellWidth: 14 },
+        6: { cellWidth: 150 }, 7: { cellWidth: 50, font: "courier" },
+      },
     });
 
+    // ── Attachments (decrypted in the browser) ──
     if (includeMedia) {
       const entriesWithMedia = entries.filter((e) => e.has_attachments && mediaMap[e.id]?.length);
       let count = 0;
@@ -248,14 +349,14 @@ export default function ExportClient({ mode, email, passwordSalt }: Props) {
           doc.addPage();
           doc.setFontSize(10);
           doc.setTextColor(40);
-          doc.text(`Entry: ${formatDate(entry.created_at)}`, 40, 40);
+          doc.text(`Attachment for entry recorded ${formatTimestamp(entry.created_at)}`, M, 40);
           doc.setFontSize(8);
           doc.setTextColor(100);
 
           if (m.kind !== "IMAGE") {
-            doc.text(`${m.kind === "VIDEO" ? "Video" : "Audio"} attachment (${m.mime_type}, ${(m.size_bytes / 1024).toFixed(0)} KB)`, 40, 56);
-            doc.text(`File ID: ${m.id}`, 40, 68);
-            doc.text("Use ZIP export to include the actual video/audio file.", 40, 80);
+            doc.text(`${m.kind === "VIDEO" ? "Video" : "Audio"} attachment (${m.mime_type}, ${(m.size_bytes / 1024).toFixed(0)} KB)`, M, 56);
+            doc.text(`File ID: ${m.id}`, M, 68);
+            doc.text("Use ZIP export to include the actual video/audio file.", M, 80);
             continue;
           }
 
@@ -265,18 +366,18 @@ export default function ExportClient({ mode, email, passwordSalt }: Props) {
             // Detect format from magic bytes — works even if stored MIME type is wrong
             const fmt = detectImageFormat(plain);
             if (!fmt) {
-              doc.text(`[Image format not supported in PDF — retrieve via ZIP export]`, 40, 56);
+              doc.text(`[Image format not supported in PDF — retrieve via ZIP export]`, M, 56);
               continue;
             }
 
             const b64 = arrayBufferToBase64(plain);
             const dataUrl = `data:${fmt.mime};base64,${b64}`;
 
-            doc.text(`Image attachment (${(m.size_bytes / 1024).toFixed(0)} KB)`, 40, 54);
+            doc.text(`Image attachment (${(m.size_bytes / 1024).toFixed(0)} KB) — File ID ${m.id}`, M, 54);
 
             // Fit image in page (letter 612×792pt, 40pt margins)
             const maxW = 532;
-            const maxH = 660;
+            const maxH = 640;
             const img = new Image();
             await new Promise<void>((resolve, reject) => {
               img.onload = () => resolve();
@@ -284,15 +385,53 @@ export default function ExportClient({ mode, email, passwordSalt }: Props) {
               img.src = dataUrl;
             });
             const ratio = Math.min(maxW / img.width, maxH / img.height, 1);
-            doc.addImage(dataUrl, fmt.ext, 40, 68, img.width * ratio, img.height * ratio);
+            doc.addImage(dataUrl, fmt.ext, M, 68, img.width * ratio, img.height * ratio);
           } catch {
-            doc.text(`[Image could not be embedded — retrieve via ZIP export]`, 40, 56);
+            doc.text(`[Image could not be embedded — retrieve via ZIP export]`, M, 56);
           }
         }
       }
     }
 
-    doc.save("bellemeadow-wellness-export.pdf");
+    // ── Integrity / tamper-evidence ──
+    doc.addPage();
+    doc.setFontSize(13); doc.setTextColor(30); doc.text("Integrity verification", M, 50);
+    doc.setFontSize(9.5); doc.setTextColor(60);
+    let iy = 70;
+    [
+      "Each entry is hashed with SHA-256, and the entries are chained in",
+      "chronological order into a single document hash. Changing the wording,",
+      "dates, order, or attachment list of any entry — or adding or removing an",
+      "entry — changes the document hash below. The per-entry hashes are listed",
+      "so the chain can be independently recomputed.",
+    ].forEach((l) => { doc.text(l, M, iy); iy += 14; });
+    iy += 8;
+    doc.setFontSize(9.5); doc.setTextColor(30); doc.text("Document SHA-256:", M, iy); iy += 14;
+    doc.setFont("courier", "normal"); doc.setFontSize(9);
+    doc.text(documentHash.slice(0, 32), M, iy); iy += 12;
+    doc.text(documentHash.slice(32), M, iy); iy += 18;
+    doc.setFont("helvetica", "normal");
+
+    autoTable(doc, {
+      startY: iy,
+      head: [["#", "Recorded", "Entry SHA-256"]],
+      body: entries.map((e, i) => [String(i + 1), formatTimestamp(e.created_at), entryHashes[i] ?? ""]),
+      styles: { fontSize: 7, cellPadding: 2, font: "courier" },
+      headStyles: { fillColor: SAGE, font: "helvetica" },
+      columnStyles: { 0: { cellWidth: 18 }, 1: { cellWidth: 104, font: "helvetica" } },
+    });
+
+    // ── Page numbers + document hash on every page (so pages can't be swapped) ──
+    const pages = doc.getNumberOfPages();
+    for (let p = 1; p <= pages; p++) {
+      doc.setPage(p);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7); doc.setTextColor(150);
+      doc.text(`Page ${p} of ${pages}`, M, 782);
+      doc.text(`Document ${documentHash.slice(0, 12)}`, 612 - M, 782, { align: "right" });
+    }
+
+    doc.save("record-timeline.pdf");
   }
 
   async function exportZip(
@@ -300,11 +439,13 @@ export default function ExportClient({ mode, email, passwordSalt }: Props) {
     mediaMap: Record<string, MediaMeta[]>,
     disclaimer: string,
     exportedAt: string,
-    vaultKey: CryptoKey
+    vaultKey: CryptoKey,
+    entryHashes: string[],
+    documentHash: string
   ) {
     const JSZip = (await import("jszip")).default;
     const zip = new JSZip();
-    const csv = buildCsvContent(entries, disclaimer, exportedAt);
+    const csv = buildCsvContent(entries, disclaimer, exportedAt, entryHashes, documentHash);
     zip.file("timeline.csv", csv);
 
     const mediaFileList: string[] = [];
@@ -341,6 +482,7 @@ export default function ExportClient({ mode, email, passwordSalt }: Props) {
       `# ${disclaimer}`,
       ``,
       `# SHA-256 of timeline.csv: ${hash}`,
+      `# Document SHA-256 (chained over all entries in chronological order): ${documentHash}`,
       ``,
       mediaFileList.length > 0
         ? `# Media files (${mediaFileList.length}):\n${mediaFileList.map((f) => `#   ${f}`).join("\n")}`
@@ -404,6 +546,39 @@ export default function ExportClient({ mode, email, passwordSalt }: Props) {
               ))}
             </div>
           </div>
+
+          {format === "pdf" && (
+            <div className="space-y-3">
+              <div className="bg-brand-50 border border-brand-100 rounded-xl p-3 text-xs text-brand-800 leading-relaxed">
+                The PDF includes a signable declaration and a tamper-evidence hash, so it can be used
+                as a court exhibit. These fields are optional — leave them blank to fill in by hand.
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Your full legal name <span className="font-normal text-gray-400">(for the declaration)</span>
+                </label>
+                <input
+                  type="text"
+                  value={declarantName}
+                  onChange={(e) => setDeclarantName(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 transition"
+                  placeholder="Optional"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  State / jurisdiction
+                </label>
+                <input
+                  type="text"
+                  value={declarantState}
+                  onChange={(e) => setDeclarantState(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 transition"
+                  placeholder="Optional, e.g. California"
+                />
+              </div>
+            </div>
+          )}
 
           {format !== "csv" && (
             <label className="flex items-start gap-3 bg-white border border-gray-200 rounded-xl p-3 cursor-pointer hover:border-brand-300 transition-colors">
