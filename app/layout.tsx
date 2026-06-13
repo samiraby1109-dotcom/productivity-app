@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import PwaRegistration from "@/components/PwaRegistration";
+import PrivacyScreen from "@/components/PrivacyScreen";
 
 export const metadata: Metadata = {
   title: "BelleMeadow Wellness — Daily Tracker",
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <PwaRegistration />
         {children}
+        <PrivacyScreen />
       </body>
     </html>
   );

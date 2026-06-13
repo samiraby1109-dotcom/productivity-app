@@ -7,6 +7,7 @@ import {
   recordFailedAttemptDb,
   clearAttemptsDb,
   getDecoySecret,
+  emailFingerprint,
 } from "@/lib/auth";
 import { signSession, sessionCookieOptions } from "@/lib/session";
 import { apiError, requireJsonBody } from "@/lib/server-session";
@@ -50,19 +51,42 @@ export async function POST(req: NextRequest) {
     const emailNorm = email.toLowerCase().trim();
 
     const db = createServiceClient();
-    const { data: user, error: userErr } = await db
+    const emailFp = emailFingerprint(emailNorm);
+    type LoginUser = {
+      id: string; email: string; password_hash: string; decoy_code_hash: string;
+      password_salt: string; failed_attempts: number | null; locked_until: string | null;
+    };
+    let user: LoginUser | null = null;
+
+    const primary = await db
       .from("users")
       .select("id, email, password_hash, decoy_code_hash, password_salt, failed_attempts, locked_until")
       .eq("email", emailNorm)
       .maybeSingle();
 
-    if (userErr) {
-      // A query error (e.g. a column missing because a migration was never
-      // applied to this database, or an RLS/credentials problem) must NOT
-      // masquerade as "no such user". Surface it loudly and return a server
-      // error so the cause is visible instead of looking like bad creds.
-      console.error("[login] outcome=db_error", { email: emailNorm, code: (userErr as { code?: string }).code, message: userErr.message });
-      return apiError(500, "Something went wrong on our end. Please try again.");
+    if (primary.error) {
+      // The lockout columns (migration 008) may be absent on this database.
+      // A schema gap must NOT take down login: log loudly, then retry with the
+      // guaranteed-present columns and proceed with per-account lockout disabled
+      // (per-IP rate limiting still applies). Never let a missing column
+      // masquerade as "wrong credentials".
+      console.error("[login] lockout_columns_unavailable; degrading", {
+        emailFp, code: (primary.error as { code?: string }).code, message: primary.error.message,
+      });
+      const fallback = await db
+        .from("users")
+        .select("id, email, password_hash, decoy_code_hash, password_salt")
+        .eq("email", emailNorm)
+        .maybeSingle();
+      if (fallback.error) {
+        console.error("[login] outcome=db_error", {
+          emailFp, code: (fallback.error as { code?: string }).code, message: fallback.error.message,
+        });
+        return apiError(500, "Something went wrong on our end. Please try again.");
+      }
+      user = fallback.data ? ({ ...fallback.data, failed_attempts: 0, locked_until: null } as LoginUser) : null;
+    } else {
+      user = primary.data as LoginUser | null;
     }
 
     if (!user) {
@@ -70,7 +94,7 @@ export async function POST(req: NextRequest) {
       // equivalent PBKDF2 cycle first so timing doesn't reveal account
       // existence. Don't record anything (there's no row to record against).
       await verifyPassword(password, DUMMY_PASSWORD_HASH);
-      console.warn("[login] outcome=no_user", { email: emailNorm, isDigitsOnly });
+      console.warn("[login] outcome=no_user", { emailFp, isDigitsOnly });
       return apiError(401, NEUTRAL_FAIL_MSG);
     }
 
@@ -106,7 +130,7 @@ export async function POST(req: NextRequest) {
     const isValid = await verifyPassword(password, user.password_hash);
     if (!isValid) {
       const attempts = (user.failed_attempts ?? 0) + 1;
-      console.warn("[login] outcome=bad_password", { userId: user.id, email: emailNorm, attempts, isDigitsOnly });
+      console.warn("[login] outcome=bad_password", { userId: user.id, emailFp, attempts, isDigitsOnly });
       await recordFailedAttemptDb(
         lockoutDb,
         user.id,

@@ -3,7 +3,7 @@
  * Password hashing uses bcrypt-compatible approach via Web Crypto (PBKDF2).
  * For MVP simplicity we use a Node.js-compatible PBKDF2 via crypto module.
  */
-import { createHmac, randomBytes, pbkdf2 as nodePbkdf2 } from "crypto";
+import { createHmac, createHash, randomBytes, pbkdf2 as nodePbkdf2 } from "crypto";
 import { promisify } from "util";
 
 const pbkdf2Async = promisify(nodePbkdf2);
@@ -38,6 +38,14 @@ function timingSafeEqual(a: string, b: string): boolean {
     result |= a.charCodeAt(i) ^ b.charCodeAt(i);
   }
   return result === 0;
+}
+
+// ─── Log redaction ───────────────────────────────────────────────────────────
+// A short, non-reversible fingerprint of an email, for correlating auth events
+// in server logs without writing survivors' actual addresses to disk. To match
+// a log line against a known address, hash that address the same way.
+export function emailFingerprint(email: string): string {
+  return createHash("sha256").update(email.toLowerCase().trim()).digest("hex").slice(0, 10);
 }
 
 // ─── Secrets ──────────────────────────────────────────────────────────────────
