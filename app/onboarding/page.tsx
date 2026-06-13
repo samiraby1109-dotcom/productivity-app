@@ -195,6 +195,16 @@ export default function OnboardingPage() {
               <p className="text-xs text-gray-400 mt-1">Shown only if you tap &quot;Need help?&quot; on the login screen.</p>
             </div>
 
+            <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-xs text-amber-900 leading-relaxed">
+              <p className="font-medium">Choose a password only you will remember</p>
+              <p className="mt-1">
+                Try not to save it in your phone&apos;s password manager — a saved password can hint that this
+                app exists, or be seen by anyone with access to your accounts. You&apos;ll get one-time recovery
+                codes at the end in case you ever forget it. If you have a trusted advocate, you can give them
+                your recovery codes to keep somewhere safe.
+              </p>
+            </div>
+
             {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
 
             <button
@@ -340,8 +350,8 @@ export default function OnboardingPage() {
               <p className="mt-1">
                 Write them on paper and store them somewhere private — ideally not
                 in this phone, and not anywhere someone else could find them. Avoid
-                screenshots. No one can recover your account or your entries without
-                one of these codes.
+                screenshots. A trusted advocate can also hold a copy for you. No one
+                can recover your account or your entries without one of these codes.
               </p>
             </div>
 
