@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { createHash } from "crypto";
 import { requireFullSession, apiError, requireJsonBody } from "@/lib/server-session";
 import { createServiceClient } from "@/lib/db";
 import { verifyPassword } from "@/lib/auth";
@@ -101,10 +102,20 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Server attestation: hash each stored ciphertext server-side. Together with
+    // created_at (the server's trusted receipt time), this lets the export show
+    // a tamper-evidence value the operator can independently confirm — without
+    // the server ever seeing plaintext.
+    const attestedEntries = (entries ?? []).map((e) => ({
+      ...e,
+      ciphertext_sha256: createHash("sha256").update(e.encrypted_payload ?? "").digest("hex"),
+    }));
+
     return Response.json({
-      entries: entries ?? [],
+      entries: attestedEntries,
       mediaMap,
       exportedAt: new Date().toISOString(),
+      attestation: "created_at and ciphertext_sha256 are drawn from the platform's server-side records.",
       disclaimer: "User-generated content; platform does not verify accuracy.",
     });
   } catch (err: unknown) {

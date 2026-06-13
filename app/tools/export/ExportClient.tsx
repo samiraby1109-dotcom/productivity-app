@@ -16,13 +16,16 @@ type ExportFormat = "csv" | "pdf" | "zip";
 
 interface DecryptedEntry {
   id: string;
-  created_at: string;
+  created_at: string;          // server "logged" time (trusted)
+  occurred_at: string | null;  // incident time stated by the survivor (from payload)
+  location: string | null;
   incident_types: string[];
   flags_police: boolean;
   flags_children: boolean;
   flags_witness: boolean;
   notes: string;
   has_attachments: boolean;
+  ciphertext_sha256: string;   // server-attested hash of the stored ciphertext
 }
 
 interface MediaMeta {
@@ -92,7 +95,9 @@ function formatTimestamp(iso: string): string {
 function canonicalEntry(e: DecryptedEntry, media: MediaMeta[] | undefined): string {
   return JSON.stringify({
     id: e.id,
-    recorded_at: e.created_at,
+    logged_at: e.created_at,
+    occurred_at: e.occurred_at ?? null,
+    location: e.location ?? null,
     incident_types: [...e.incident_types].sort(),
     police: e.flags_police,
     children: e.flags_children,
@@ -169,6 +174,7 @@ export default function ExportClient({ mode, email, passwordSalt }: Props) {
           flags_witness: boolean;
           has_attachments: boolean;
           encrypted_payload: string;
+          ciphertext_sha256: string;
         }[];
         mediaMap: Record<string, MediaMeta[]>;
         exportedAt: string;
@@ -178,36 +184,34 @@ export default function ExportClient({ mode, email, passwordSalt }: Props) {
       setProgress("Decrypting entries…");
       const decrypted: DecryptedEntry[] = [];
       for (const entry of entries) {
+        const base = {
+          id: entry.id,
+          created_at: entry.created_at,
+          incident_types: entry.incident_types,
+          flags_police: entry.flags_police,
+          flags_children: entry.flags_children,
+          flags_witness: entry.flags_witness,
+          has_attachments: entry.has_attachments,
+          ciphertext_sha256: entry.ciphertext_sha256,
+        };
         try {
           const blob = JSON.parse(entry.encrypted_payload) as EncryptedBlob;
-          const plain = await decryptPayload<{ notes: string }>(blob, key);
+          const plain = await decryptPayload<{ notes: string; occurredAt?: string | null; location?: string | null }>(blob, key);
           decrypted.push({
-            id: entry.id,
-            created_at: entry.created_at,
-            incident_types: entry.incident_types,
-            flags_police: entry.flags_police,
-            flags_children: entry.flags_children,
-            flags_witness: entry.flags_witness,
+            ...base,
             notes: plain.notes ?? "",
-            has_attachments: entry.has_attachments,
+            occurred_at: plain.occurredAt ?? null,
+            location: plain.location ?? null,
           });
         } catch {
-          decrypted.push({
-            id: entry.id,
-            created_at: entry.created_at,
-            incident_types: entry.incident_types,
-            flags_police: entry.flags_police,
-            flags_children: entry.flags_children,
-            flags_witness: entry.flags_witness,
-            notes: "[Decryption failed]",
-            has_attachments: entry.has_attachments,
-          });
+          decrypted.push({ ...base, notes: "[Decryption failed]", occurred_at: null, location: null });
         }
       }
 
       // Chronological order is what a court timeline expects, and what the
-      // tamper-evidence hash chain is computed over.
-      decrypted.sort((a, b) => a.created_at.localeCompare(b.created_at));
+      // tamper-evidence hash chain is computed over. Sort by when the incident
+      // occurred (the survivor's account) when present, else when it was logged.
+      decrypted.sort((a, b) => (a.occurred_at ?? a.created_at).localeCompare(b.occurred_at ?? b.created_at));
       const { entryHashes, documentHash } = await computeIntegrity(decrypted, mediaMap);
 
       if (format === "csv") {
@@ -233,8 +237,10 @@ export default function ExportClient({ mode, email, passwordSalt }: Props) {
     entries: DecryptedEntry[], disclaimer: string, exportedAt: string,
     entryHashes: string[], documentHash: string
   ): string {
-    const header = ["Recorded At", "Incident Types", "Police", "Children", "Witness", "Has Attachments", "Notes", "Entry SHA-256", "ID"].join(",");
+    const header = ["Occurred At", "Location", "Logged At (server)", "Incident Types", "Police", "Children", "Witness", "Has Attachments", "Notes", "Entry SHA-256", "Server Ciphertext SHA-256", "ID"].join(",");
     const rows = entries.map((e, i) => [
+      `"${e.occurred_at ? formatTimestamp(e.occurred_at) : ""}"`,
+      `"${(e.location ?? "").replace(/"/g, '""')}"`,
       `"${formatTimestamp(e.created_at)}"`,
       `"${e.incident_types.map((k) => INCIDENT_TYPES.find((t) => t.key === k)?.label ?? k).join("; ")}"`,
       e.flags_police ? "Yes" : "No",
@@ -243,6 +249,7 @@ export default function ExportClient({ mode, email, passwordSalt }: Props) {
       e.has_attachments ? "Yes" : "No",
       `"${(e.notes ?? "").replace(/"/g, '""')}"`,
       entryHashes[i] ?? "",
+      e.ciphertext_sha256 ?? "",
       e.id,
     ].join(","));
     return [
@@ -316,15 +323,15 @@ export default function ExportClient({ mode, email, passwordSalt }: Props) {
     doc.setFontSize(13); doc.setTextColor(30); doc.text("Timeline of entries", M, 50);
     autoTable(doc, {
       startY: 64,
-      head: [["#", "Recorded", "Types", "P", "C", "W", "Notes", "Ref"]],
+      head: [["#", "When", "Types", "P", "C", "W", "Notes", "Ref"]],
       body: entries.map((e, i) => [
         String(i + 1),
-        formatTimestamp(e.created_at),
+        e.occurred_at ? formatTimestamp(e.occurred_at) : formatTimestamp(e.created_at),
         e.incident_types.map((k) => INCIDENT_TYPES.find((t) => t.key === k)?.label?.split(" (")[0] ?? k).join("\n"),
         e.flags_police ? "Y" : "",
         e.flags_children ? "Y" : "",
         e.flags_witness ? "Y" : "",
-        e.notes ?? "",
+        (e.location ? `Location: ${e.location}\n` : "") + (e.notes ?? ""),
         (entryHashes[i] ?? "").slice(0, 8),
       ]),
       styles: { fontSize: 7.5, cellPadding: 3, valign: "top", overflow: "linebreak" },
@@ -399,11 +406,13 @@ export default function ExportClient({ mode, email, passwordSalt }: Props) {
     doc.setFontSize(9.5); doc.setTextColor(60);
     let iy = 70;
     [
-      "Each entry is hashed with SHA-256, and the entries are chained in",
-      "chronological order into a single document hash. Changing the wording,",
-      "dates, order, or attachment list of any entry — or adding or removing an",
-      "entry — changes the document hash below. The per-entry hashes are listed",
-      "so the chain can be independently recomputed.",
+      "“When” on each entry is the date/time stated for the incident; “Logged",
+      "(server)” below is the platform's trusted server receipt time. Each entry is",
+      "hashed with SHA-256 and chained in chronological order into the document hash",
+      "below — changing the wording, dates, order, or attachments of any entry changes",
+      "that hash. The platform also stores a SHA-256 of each encrypted record (the",
+      "server ciphertext hash, included in the CSV/ZIP export), which the platform",
+      "operator can independently confirm.",
     ].forEach((l) => { doc.text(l, M, iy); iy += 14; });
     iy += 8;
     doc.setFontSize(9.5); doc.setTextColor(30); doc.text("Document SHA-256:", M, iy); iy += 14;
@@ -414,7 +423,7 @@ export default function ExportClient({ mode, email, passwordSalt }: Props) {
 
     autoTable(doc, {
       startY: iy,
-      head: [["#", "Recorded", "Entry SHA-256"]],
+      head: [["#", "Logged (server)", "Entry SHA-256"]],
       body: entries.map((e, i) => [String(i + 1), formatTimestamp(e.created_at), entryHashes[i] ?? ""]),
       styles: { fontSize: 7, cellPadding: 2, font: "courier" },
       headStyles: { fillColor: SAGE, font: "helvetica" },

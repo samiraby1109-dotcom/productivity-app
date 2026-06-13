@@ -21,6 +21,8 @@ interface Props {
 export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
   const router = useRouter();
   const [notes, setNotes] = useState("");
+  const [occurredAt, setOccurredAt] = useState("");
+  const [location, setLocation] = useState("");
   const [incidentTypes, setIncidentTypes] = useState<IncidentTypeKey[]>([]);
   const [flagsPolice, setFlagsPolice] = useState(false);
   const [flagsChildren, setFlagsChildren] = useState(false);
@@ -51,6 +53,10 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
 
       const payload = {
         notes,
+        // The incident's own date/time and place — distinct from when it was
+        // logged. Kept inside the encrypted payload (zero-knowledge).
+        occurredAt: occurredAt ? new Date(occurredAt).toISOString() : null,
+        location: location.trim() || null,
         timestamp: new Date().toISOString(),
       };
 
@@ -186,6 +192,37 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
               className="w-full px-3.5 py-3 rounded-xl border border-gray-200 text-[15px] text-gray-800 leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-brand-500 transition"
             />
             <p className="text-xs text-gray-400 mt-1.5">Encrypted on your device before it&apos;s saved.</p>
+          </div>
+
+          {/* When & where it happened — valuable for a protection order or case */}
+          <div className="grid grid-cols-1 gap-3">
+            <div>
+              <label htmlFor="occurredAt" className="block text-sm font-medium text-gray-700 mb-1.5">
+                When did it happen? <span className="font-normal text-gray-400">(optional)</span>
+              </label>
+              <input
+                id="occurredAt"
+                type="datetime-local"
+                value={occurredAt}
+                onChange={(e) => setOccurredAt(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-brand-500 transition"
+              />
+              <p className="text-xs text-gray-400 mt-1">The date and time of the incident itself, if different from now.</p>
+            </div>
+            <div>
+              <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1.5">
+                Where? <span className="font-normal text-gray-400">(optional)</span>
+              </label>
+              <input
+                id="location"
+                type="text"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                maxLength={120}
+                placeholder="e.g. home, by phone, the parking lot"
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-brand-500 transition"
+              />
+            </div>
           </div>
 
           {/* Categories — optional, grouped to feel lighter */}
