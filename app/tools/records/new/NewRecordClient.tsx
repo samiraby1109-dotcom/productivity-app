@@ -261,6 +261,10 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
             {files.length > 0 && (
               <p className="text-xs text-gray-400 mt-1">{files.length} file(s) selected — will be encrypted before upload.</p>
             )}
+            <p className="text-xs text-gray-400 mt-2 leading-relaxed">
+              Adding audio or video of another person? Recording-consent laws vary by state — see{" "}
+              <span className="font-medium text-gray-500">Guides → Recording laws</span> before you record.
+            </p>
           </div>
 
           {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}

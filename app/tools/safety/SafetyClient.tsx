@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import NavShell from "@/components/NavShell";
 import IdleLock from "@/components/IdleLock";
 import { getVaultKey, encryptPayload, decryptPayload, type EncryptedBlob } from "@/lib/crypto";
@@ -123,10 +124,21 @@ export default function SafetyClient({ mode, email, passwordSalt }: Props) {
       <NavShell mode={mode}>
         <h1 className="text-lg font-semibold text-gray-900 mb-2">Safety Plan</h1>
 
-        <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 mb-6 text-sm text-blue-900">
+        <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 mb-4 text-sm text-blue-900">
           <p className="font-medium">You do not need documentation to leave.</p>
           <p className="text-xs mt-1 text-blue-700">This guide is for planning, not legal advice.</p>
         </div>
+
+        <Link
+          href="/tools/risk"
+          className="flex items-center justify-between gap-3 rounded-xl bg-white border border-gray-200 p-4 mb-6 hover:border-brand-300 transition-colors"
+        >
+          <span>
+            <span className="block text-sm font-medium text-gray-900">Safety risk check</span>
+            <span className="block text-xs text-gray-500">A private reflection on risk factors — nothing is saved</span>
+          </span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-gray-400 flex-shrink-0"><path d="M9 18l6-6-6-6" /></svg>
+        </Link>
 
         <div className="space-y-4">
           <Section title="If you cannot leave yet">

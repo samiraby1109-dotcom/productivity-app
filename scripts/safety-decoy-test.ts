@@ -132,7 +132,7 @@ async function main() {
       blocked && noLeak, { critical: true, detail: { status: r.status, body: r.text.slice(0, 120) } });
   }
 
-  for (const p of ["/tools", "/tools/records", `/tools/records/${recId}`, "/tools/export", "/tools/records/new", "/tools/recovery", "/tools/archive", "/tools/contacts"]) {
+  for (const p of ["/tools", "/tools/records", `/tools/records/${recId}`, "/tools/export", "/tools/records/new", "/tools/recovery", "/tools/archive", "/tools/contacts", "/tools/safety", "/tools/risk", "/tools/guides", "/tools/resources"]) {
     const r = await req("GET", p, { cookie: decoyCookie });
     const redirected = [301, 302, 307, 308].includes(r.status) && (r.location ?? "").includes("/dashboard");
     const noLeak = !r.text.includes(MARKER);

@@ -22,6 +22,12 @@ export default function NavShell({ mode, children }: Props) {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-lg focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-brand-700 focus:shadow"
+      >
+        Skip to content
+      </a>
       {/* Top bar */}
       <header className="bg-white/90 backdrop-blur border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-30">
         <Link href="/dashboard" aria-label="BelleMeadow Wellness">
@@ -42,7 +48,7 @@ export default function NavShell({ mode, children }: Props) {
       </header>
 
       {/* Page content */}
-      <main className={cn("flex-1 px-4 py-6 max-w-2xl mx-auto w-full", mode === "FULL" && "pb-24")}>
+      <main id="main" tabIndex={-1} className={cn("flex-1 px-4 py-6 max-w-2xl mx-auto w-full outline-none", mode === "FULL" && "pb-24")}>
         {children}
       </main>
 
