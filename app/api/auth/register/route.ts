@@ -112,6 +112,8 @@ export async function POST(req: NextRequest) {
       console.error("User creation error:", error);
       return apiError(500, "Registration failed");
     }
+    // So a failed login can be correlated against the exact stored email.
+    console.info("[register] created", { userId: user.id, email: user.email });
 
     // Persist recovery-code material (best-effort — codes can be regenerated
     // later, so a failure here must not abort an otherwise-successful signup).
