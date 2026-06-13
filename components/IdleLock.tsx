@@ -5,7 +5,7 @@
  * On page restart, forces re-login via server session check.
  */
 import { useEffect, useRef, useState, useCallback } from "react";
-import { IDLE_TIMEOUT_MS } from "@/lib/constants";
+import { getAutoLockMs } from "@/lib/autolock";
 import { clearVaultKey, unlockVaultFromMe } from "@/lib/crypto";
 import { normalizePassword } from "@/lib/password";
 
@@ -29,11 +29,12 @@ export default function IdleLock({ mode, email }: Props) {
 
   const resetTimer = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(lock, IDLE_TIMEOUT_MS);
+    timerRef.current = setTimeout(lock, getAutoLockMs());
   }, [lock]);
 
   useEffect(() => {
-    const events = ["mousemove", "keydown", "touchstart", "scroll", "click"];
+    // "bw-autolock-change" re-arms the timer immediately when the preference changes.
+    const events = ["mousemove", "keydown", "touchstart", "scroll", "click", "bw-autolock-change"];
     events.forEach((e) => window.addEventListener(e, resetTimer, { passive: true }));
     resetTimer();
     return () => {

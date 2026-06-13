@@ -7,6 +7,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import BottomNav from "./BottomNav";
+import SafetyWalkthrough from "./SafetyWalkthrough";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -53,6 +54,7 @@ export default function NavShell({ mode, children }: Props) {
       </main>
 
       {mode === "FULL" && <BottomNav />}
+      {mode === "FULL" && <SafetyWalkthrough />}
     </div>
   );
 }

@@ -7,6 +7,36 @@ import TrustedContactNudgeModal from "@/components/TrustedContactNudgeModal";
 import { INCIDENT_TYPES, INCIDENT_TYPE_GROUPS, type IncidentTypeKey } from "@/lib/constants";
 
 const labelFor = (k: IncidentTypeKey) => INCIDENT_TYPES.find((t) => t.key === k)?.label.split(" (")[0] ?? k;
+
+/**
+ * Re-encode an image through a canvas to strip ALL embedded metadata — EXIF GPS
+ * coordinates, capture timestamps, device info. This protects against location
+ * leaking if a decrypted export is ever shared. Non-images and any format the
+ * browser can't decode pass through unchanged (upload is never blocked).
+ */
+async function stripImageMetadata(file: File): Promise<File> {
+  if (!file.type.startsWith("image/")) return file;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.drawImage(bitmap, 0, 0);
+    bitmap.close();
+    const isPng = file.type === "image/png";
+    const mime = isPng ? "image/png" : "image/jpeg";
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, mime, isPng ? undefined : 0.92)
+    );
+    if (!blob) return file;
+    const name = file.name.replace(/\.[^.]+$/, "") + (isPng ? ".png" : ".jpg");
+    return new File([blob], name, { type: mime });
+  } catch {
+    return file;
+  }
+}
 import { encryptPayload, getVaultKey } from "@/lib/crypto";
 import { generateFileKey, wrapFileKey, encryptFile } from "@/lib/crypto";
 import { v4 as uuidv4 } from "uuid";
@@ -28,6 +58,7 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
   const [flagsChildren, setFlagsChildren] = useState(false);
   const [flagsWitness, setFlagsWitness] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
+  const [stripMetadata, setStripMetadata] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [nudgeCount, setNudgeCount] = useState<number | null>(null);
@@ -109,25 +140,26 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
 
   async function uploadFile(file: File, entryId: string, vaultKey: CryptoKey) {
     try {
+      const toUpload = stripMetadata ? await stripImageMetadata(file) : file;
       const fileKey = await generateFileKey();
       const wrapped = await wrapFileKey(fileKey, vaultKey);
-      const buf = await file.arrayBuffer();
+      const buf = await toUpload.arrayBuffer();
       const encBuf = await encryptFile(buf, fileKey);
       const encBlob = new Blob([encBuf], { type: "application/octet-stream" });
 
-      const kind = file.type.startsWith("video/")
+      const kind = toUpload.type.startsWith("video/")
         ? "VIDEO"
-        : file.type.startsWith("audio/")
+        : toUpload.type.startsWith("audio/")
         ? "AUDIO"
         : "IMAGE";
 
       const fd = new FormData();
       fd.append("entryId", entryId);
       fd.append("kind", kind);
-      fd.append("mimeType", file.type);
+      fd.append("mimeType", toUpload.type);
       fd.append("wrappedKey", wrapped.wrappedKey);
       fd.append("wrappedKeyIv", wrapped.iv);
-      fd.append("file", encBlob, file.name);
+      fd.append("file", encBlob, toUpload.name);
 
       const res = await fetch("/api/media/upload", { method: "POST", body: fd });
 
@@ -140,9 +172,9 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
           encryptedBlob: encBuf,
           wrappedKey: wrapped.wrappedKey,
           wrappedKeyIv: wrapped.iv,
-          mimeType: file.type,
+          mimeType: toUpload.type,
           kind: kind as "IMAGE" | "VIDEO" | "AUDIO",
-          sizeBytes: file.size,
+          sizeBytes: toUpload.size,
           createdAt: new Date().toISOString(),
           retries: 0,
         });
@@ -302,6 +334,18 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
               Adding audio or video of another person? Recording-consent laws vary by state — see{" "}
               <span className="font-medium text-gray-500">Guides → Recording laws</span> before you record.
             </p>
+            <label className="flex items-start gap-2 mt-3 text-xs text-gray-500 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={stripMetadata}
+                onChange={(e) => setStripMetadata(e.target.checked)}
+                className="mt-0.5 accent-brand-500"
+              />
+              <span>
+                Remove hidden location data (GPS/EXIF) from photos.{" "}
+                <span className="text-gray-400">Recommended — protects your location if an export is ever shared. Photos are re-saved; video and audio are unaffected.</span>
+              </span>
+            </label>
           </div>
 
           {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
