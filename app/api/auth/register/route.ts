@@ -7,6 +7,7 @@ import {
   getDecoySecret,
 } from "@/lib/auth";
 import { signSession, sessionCookieOptions } from "@/lib/session";
+import { normalizePassword } from "@/lib/password";
 import { apiError, requireJsonBody } from "@/lib/server-session";
 import { emailEnabled, sendVerificationEmail } from "@/lib/email";
 import { signVerifyToken } from "@/lib/verify-token";
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
     if (ctError) return ctError;
 
     const body = await req.json();
-    const { email, password, passwordHint, decoyCode, vault } = body as {
+    const { email, password: rawPassword, passwordHint, decoyCode, vault } = body as {
       email: string;
       password: string;
       passwordHint?: string;
@@ -47,6 +48,8 @@ export async function POST(req: NextRequest) {
         recoveryCodes: { codeHash: string; wrapped: string; iv: string; salt: string }[];
       };
     };
+    // Hash and key-derive over the trimmed password so signup matches login.
+    const password = normalizePassword(rawPassword ?? "");
 
     // IP-based rate limit: 5 registrations per minute per IP
     const ip = getClientIp(req);

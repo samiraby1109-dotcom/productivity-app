@@ -10,6 +10,7 @@ import {
   CODE_KEK_ITERATIONS,
 } from "@/lib/crypto";
 import { formatRecoveryCode } from "@/lib/recovery-format";
+import { normalizePassword } from "@/lib/password";
 
 type Step = "account" | "decoy" | "disclosure" | "recovery";
 
@@ -28,9 +29,10 @@ export default function OnboardingPage() {
   const [savedConfirmed, setSavedConfirmed] = useState(false);
 
   function validateAccount() {
+    const pw = normalizePassword(password);
     if (!email.trim()) return "Email is required.";
-    if (password.length < 8) return "Password must be at least 8 characters.";
-    if (password !== confirmPassword) return "Passwords do not match.";
+    if (pw.length < 8) return "Password must be at least 8 characters.";
+    if (pw !== normalizePassword(confirmPassword)) return "Passwords do not match.";
     return null;
   }
 
@@ -61,9 +63,11 @@ export default function OnboardingPage() {
     setError("");
     try {
       // Generate the Vault Master Key and recovery codes entirely client-side.
-      // The server only ever receives wrapped/hashed material.
+      // The server only ever receives wrapped/hashed material. The password is
+      // normalized first so the vault key and the server hash match at login.
+      const pw = normalizePassword(password);
       const vmk = await generateVaultMasterKey();
-      const vmkPw = await wrapVmkWithSecret(vmk, password);
+      const vmkPw = await wrapVmkWithSecret(vmk, pw);
       const codes = generateRecoveryCodes();
       const recoveryPayload = await Promise.all(
         codes.map(async (code) => {
@@ -80,7 +84,7 @@ export default function OnboardingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: email.trim(),
-          password,
+          password: pw,
           passwordHint: passwordHint.trim() || undefined,
           decoyCode,
           vault: {

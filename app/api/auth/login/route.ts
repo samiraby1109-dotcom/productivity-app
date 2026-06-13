@@ -11,6 +11,7 @@ import {
 import { signSession, sessionCookieOptions } from "@/lib/session";
 import { apiError, requireJsonBody } from "@/lib/server-session";
 import { MAX_LOGIN_ATTEMPTS, LOCKOUT_DURATION_MS } from "@/lib/constants";
+import { normalizePassword } from "@/lib/password";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 const NEUTRAL_FAIL_MSG = "Check your credentials and try again.";
@@ -27,7 +28,10 @@ export async function POST(req: NextRequest) {
     if (ctError) return ctError;
 
     const body = await req.json();
-    const { email, password } = body as { email: string; password: string };
+    const { email, password: rawPassword } = body as { email: string; password: string };
+    // Trim leading/trailing whitespace before anything else — a stray space
+    // from copy/paste must not make a correct password (or PIN) fail.
+    const password = normalizePassword(rawPassword ?? "");
 
     if (!email || !password) {
       return apiError(400, "Missing credentials");
@@ -57,26 +61,24 @@ export async function POST(req: NextRequest) {
       // equivalent PBKDF2 cycle first so timing doesn't reveal account
       // existence. Don't record anything (there's no row to record against).
       await verifyPassword(password, DUMMY_PASSWORD_HASH);
-      return apiError(401, NEUTRAL_FAIL_MSG);
-    }
-
-    // Per-account lockout (silent — same message for locked vs wrong creds)
-    if (isLockedFromRow(user)) {
+      console.warn("[login] outcome=no_user", { isDigitsOnly });
       return apiError(401, NEUTRAL_FAIL_MSG);
     }
 
     const decoySecret = getDecoySecret();
-
-    // Check decoy code first (4-digit PIN entered as password)
-    const isDecoy = isDigitsOnly && verifyDecoyCode(password, user.decoy_code_hash, decoySecret);
-
     // The Supabase client's deep generic types make a direct call to
     // clearAttemptsDb / recordFailedAttemptDb trigger TS2589. We've already
     // proven structural compatibility, so cast through unknown.
     const lockoutDb = db as unknown as Parameters<typeof clearAttemptsDb>[0];
 
-    if (isDecoy) {
-      await clearAttemptsDb(lockoutDb, user.id);
+    // The decoy PIN is checked BEFORE the lockout gate. It is the survivor's
+    // coercion-safety path and opens only the fake dashboard (no vault access),
+    // so it must keep working even when the real password is locked out by
+    // failed attempts. Brute force is still bounded by the per-IP PIN rate
+    // limit (3/min) applied above. The decoy stays independent of the password
+    // lockout counters and never reads or clears them.
+    if (isDigitsOnly && verifyDecoyCode(password, user.decoy_code_hash, decoySecret)) {
+      console.warn("[login] outcome=decoy_ok", { userId: user.id });
       const token = await signSession({
         userId: user.id,
         email: user.email,
@@ -86,9 +88,16 @@ export async function POST(req: NextRequest) {
       return buildSessionResponse(token, "DECOY");
     }
 
-    // Try real password
+    // Real-password path is gated by the per-account lockout.
+    if (isLockedFromRow(user)) {
+      console.warn("[login] outcome=locked", { userId: user.id, lockedUntil: user.locked_until });
+      return apiError(401, NEUTRAL_FAIL_MSG);
+    }
+
     const isValid = await verifyPassword(password, user.password_hash);
     if (!isValid) {
+      const attempts = (user.failed_attempts ?? 0) + 1;
+      console.warn("[login] outcome=bad_password", { userId: user.id, attempts, isDigitsOnly });
       await recordFailedAttemptDb(
         lockoutDb,
         user.id,
@@ -100,6 +109,7 @@ export async function POST(req: NextRequest) {
     }
 
     await clearAttemptsDb(lockoutDb, user.id);
+    console.info("[login] outcome=full_ok", { userId: user.id });
     const token = await signSession({
       userId: user.id,
       email: user.email,
