@@ -80,11 +80,19 @@ export interface TrackerNote {
   updatedAt: string;
 }
 
+export interface JournalEntry {
+  id: string;
+  dateISO: string;
+  text: string;
+}
+
 export interface TrackerData {
   id: "main";
   tasks: TrackerTask[];
   notes: TrackerNote[];
   habits: { id: string; label: string; done: boolean }[];
+  journal?: JournalEntry[];
+  moods?: Record<string, number>;
   updatedAt: string;
 }
 
