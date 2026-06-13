@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { IDLE_TIMEOUT_MS } from "@/lib/constants";
 import { clearVaultKey, unlockVaultFromMe } from "@/lib/crypto";
+import { normalizePassword } from "@/lib/password";
 
 interface Props {
   mode: "FULL" | "DECOY";
@@ -47,10 +48,11 @@ export default function IdleLock({ mode, email }: Props) {
     setError("");
 
     try {
+      const npw = normalizePassword(pw);
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password: pw }),
+        body: JSON.stringify({ email, password: npw }),
       });
 
       if (!res.ok) {
@@ -75,7 +77,7 @@ export default function IdleLock({ mode, email }: Props) {
       if (mode === "FULL") {
         // Re-fetch the wrapped VMK and unwrap it with the entered password.
         const meRes = await fetch("/api/auth/me");
-        if (meRes.ok) await unlockVaultFromMe(pw, await meRes.json());
+        if (meRes.ok) await unlockVaultFromMe(npw, await meRes.json());
       }
       setPw("");
       setLocked(false);

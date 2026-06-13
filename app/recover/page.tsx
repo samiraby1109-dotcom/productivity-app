@@ -9,6 +9,7 @@ import {
   PASSWORD_KEK_ITERATIONS,
 } from "@/lib/crypto";
 import { normalizeRecoveryCode, isValidRecoveryCodeShape } from "@/lib/recovery-format";
+import { normalizePassword } from "@/lib/password";
 
 type Phase = "enter" | "newpw" | "done";
 
@@ -75,11 +76,12 @@ export default function RecoverPage() {
   async function handleReset(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    if (newPassword.length < 8) {
+    const npw = normalizePassword(newPassword);
+    if (npw.length < 8) {
       setError("Password must be at least 8 characters.");
       return;
     }
-    if (newPassword !== confirm) {
+    if (npw !== normalizePassword(confirm)) {
       setError("Passwords do not match.");
       return;
     }
@@ -92,7 +94,7 @@ export default function RecoverPage() {
     try {
       // Re-wrap the same VMK under the new password — existing entries stay
       // readable because the key itself is unchanged.
-      const rewrapped = await wrapVmkWithSecret(vmk, newPassword);
+      const rewrapped = await wrapVmkWithSecret(vmk, npw);
       const lookupHash = matchedHash;
       const res = await fetch("/api/auth/recover", {
         method: "POST",
@@ -101,7 +103,7 @@ export default function RecoverPage() {
           action: "reset",
           email: email.trim(),
           lookupHash,
-          newPassword,
+          newPassword: npw,
           vault: { wrapped: rewrapped.wrapped, iv: rewrapped.iv, salt: rewrapped.salt },
         }),
       });

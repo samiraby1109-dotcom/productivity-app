@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
+import { normalizePassword } from "@/lib/password";
 import { apiError, requireJsonBody } from "@/lib/server-session";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
@@ -77,7 +78,8 @@ export async function POST(req: NextRequest) {
     }
 
     // action === "reset"
-    if (!newPassword || newPassword.length < 8) {
+    const npw = normalizePassword(newPassword ?? "");
+    if (!npw || npw.length < 8) {
       return apiError(400, "Password must be at least 8 characters");
     }
     if (
@@ -89,7 +91,7 @@ export async function POST(req: NextRequest) {
       return apiError(400, "Missing re-wrapped key");
     }
 
-    const newHash = await hashPassword(newPassword);
+    const newHash = await hashPassword(npw);
 
     const { error: updErr } = await db
       .from("users")
