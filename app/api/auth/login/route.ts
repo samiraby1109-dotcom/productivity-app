@@ -50,18 +50,27 @@ export async function POST(req: NextRequest) {
     const emailNorm = email.toLowerCase().trim();
 
     const db = createServiceClient();
-    const { data: user } = await db
+    const { data: user, error: userErr } = await db
       .from("users")
       .select("id, email, password_hash, decoy_code_hash, password_salt, failed_attempts, locked_until")
       .eq("email", emailNorm)
       .maybeSingle();
+
+    if (userErr) {
+      // A query error (e.g. a column missing because a migration was never
+      // applied to this database, or an RLS/credentials problem) must NOT
+      // masquerade as "no such user". Surface it loudly and return a server
+      // error so the cause is visible instead of looking like bad creds.
+      console.error("[login] outcome=db_error", { email: emailNorm, code: (userErr as { code?: string }).code, message: userErr.message });
+      return apiError(500, "Something went wrong on our end. Please try again.");
+    }
 
     if (!user) {
       // No user — return the same neutral error as a wrong password. Burn an
       // equivalent PBKDF2 cycle first so timing doesn't reveal account
       // existence. Don't record anything (there's no row to record against).
       await verifyPassword(password, DUMMY_PASSWORD_HASH);
-      console.warn("[login] outcome=no_user", { isDigitsOnly });
+      console.warn("[login] outcome=no_user", { email: emailNorm, isDigitsOnly });
       return apiError(401, NEUTRAL_FAIL_MSG);
     }
 
@@ -97,7 +106,7 @@ export async function POST(req: NextRequest) {
     const isValid = await verifyPassword(password, user.password_hash);
     if (!isValid) {
       const attempts = (user.failed_attempts ?? 0) + 1;
-      console.warn("[login] outcome=bad_password", { userId: user.id, attempts, isDigitsOnly });
+      console.warn("[login] outcome=bad_password", { userId: user.id, email: emailNorm, attempts, isDigitsOnly });
       await recordFailedAttemptDb(
         lockoutDb,
         user.id,
