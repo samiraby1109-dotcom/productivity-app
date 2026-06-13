@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { createHmac } from "crypto";
 import { createServiceClient } from "@/lib/db";
 import {
   verifyPassword,
@@ -22,6 +23,24 @@ const NEUTRAL_FAIL_MSG = "Check your credentials and try again.";
 // check. Without this, response latency reveals whether an email is registered
 // — a meaningful leak for a survivor whose mere use of the app is sensitive.
 const DUMMY_PASSWORD_HASH = `200000:${"0".repeat(32)}:${"0".repeat(128)}`;
+
+// Best-effort sign-in activity log. Wrapped so it can NEVER affect the login
+// outcome: if the login_events table hasn't been created yet, the insert simply
+// no-ops. IPs are stored only as a keyed hash, never in the clear.
+async function recordLoginEvent(
+  db: ReturnType<typeof createServiceClient>,
+  userId: string,
+  outcome: "full" | "decoy" | "failed",
+  req: NextRequest,
+): Promise<void> {
+  try {
+    const ipHash = createHmac("sha256", getDecoySecret()).update(getClientIp(req)).digest("hex").slice(0, 24);
+    const ua = (req.headers.get("user-agent") ?? "").slice(0, 200);
+    await db.from("login_events").insert({ user_id: userId, outcome, ip_hash: ipHash, user_agent: ua });
+  } catch {
+    /* table may not exist yet — never affect login */
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -118,6 +137,7 @@ export async function POST(req: NextRequest) {
         mode: "DECOY",
         passwordSalt: user.password_salt,
       });
+      await recordLoginEvent(db, user.id, "decoy", req);
       return buildSessionResponse(token, "DECOY");
     }
 
@@ -138,6 +158,7 @@ export async function POST(req: NextRequest) {
         MAX_LOGIN_ATTEMPTS,
         LOCKOUT_DURATION_MS,
       );
+      await recordLoginEvent(db, user.id, "failed", req);
       return apiError(401, NEUTRAL_FAIL_MSG);
     }
 
@@ -149,6 +170,7 @@ export async function POST(req: NextRequest) {
       mode: "FULL",
       passwordSalt: user.password_salt,
     });
+    await recordLoginEvent(db, user.id, "full", req);
     return buildSessionResponse(token, "FULL");
   } catch (err) {
     console.error("Login error:", err);

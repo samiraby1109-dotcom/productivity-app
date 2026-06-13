@@ -215,6 +215,33 @@ export interface Database {
         };
         Relationships: Relationship[];
       };
+      login_events: {
+        Row: {
+          id: string;
+          user_id: string;
+          outcome: string;
+          ip_hash: string | null;
+          user_agent: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          outcome: string;
+          ip_hash?: string | null;
+          user_agent?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          outcome?: string;
+          ip_hash?: string | null;
+          user_agent?: string | null;
+          created_at?: string;
+        };
+        Relationships: Relationship[];
+      };
       rate_limits: {
         Row: {
           key: string;

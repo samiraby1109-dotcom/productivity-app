@@ -22,6 +22,7 @@ const ICON = {
   guides: <svg viewBox="0 0 24 24" {...S} className={C}><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></svg>,
   resources: <svg viewBox="0 0 24 24" {...S} className={C}><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="4" /><path d="M4.9 4.9l4.2 4.2M14.9 14.9l4.2 4.2M14.9 9.1l4.2-4.2M14.9 9.1l3.5-3.5M4.9 19.1l4.2-4.2" /></svg>,
   recovery: <svg viewBox="0 0 24 24" {...S} className={C}><circle cx="8" cy="15" r="4" /><path d="M10.8 12.2L21 2M17 6l3 3M14 9l3 3" /></svg>,
+  security: <svg viewBox="0 0 24 24" {...S} className={C}><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>,
 };
 
 const GROUPS = [
@@ -47,6 +48,7 @@ const GROUPS = [
     title: "Account",
     items: [
       { href: "/tools/recovery", label: "Recovery codes", desc: "Backup access to your account", icon: ICON.recovery },
+      { href: "/tools/security", label: "Account security", desc: "Auto-lock & sign-in activity", icon: ICON.security },
     ],
   },
 ];
