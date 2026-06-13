@@ -297,6 +297,34 @@ export default function GuidesClient({ mode, email, passwordSalt }: Props) {
             </ul>
           </AccordionSection>
 
+          {/* ── Recording laws & your safety ── */}
+          <AccordionSection id="recording" title="Recording laws & your safety" open={open.has("recording")} onToggle={() => toggle("recording")}>
+            <div className="space-y-3 text-sm text-gray-700 leading-relaxed">
+              <p>
+                Photos, screenshots, and written notes are almost always safe to keep. <span className="font-medium">Audio and video recordings of other people are different</span> — and the law depends on where you are.
+              </p>
+              <div>
+                <p className="font-medium text-gray-800">One-party vs. all-party consent</p>
+                <ul className="mt-1 space-y-1.5 list-disc pl-5">
+                  <li><span className="font-medium">One-party consent</span> states: it can be legal to record a conversation you are part of, even if the other person doesn&apos;t know.</li>
+                  <li><span className="font-medium">All-party (two-party) consent</span> states: recording a private conversation without <span className="italic">everyone&apos;s</span> consent can be a crime — examples include California, Florida, Illinois, Massachusetts, Pennsylvania, and Washington, among others.</li>
+                </ul>
+              </div>
+              <p>
+                This list changes and the details are nuanced (in-person vs. phone, public vs. private). A recording made illegally may also be <span className="font-medium">thrown out as evidence</span> — so it can hurt your case instead of helping it.
+              </p>
+              <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-amber-900">
+                <p className="font-medium">Safety first</p>
+                <p className="text-xs mt-1 leading-relaxed">
+                  If a recording is discovered on your device, it can escalate danger. Before you record anyone, consider talking with a local advocate or attorney about your state&apos;s law and whether it&apos;s safe.
+                </p>
+              </div>
+              <p className="text-xs text-gray-500 border-t border-gray-100 pt-3">
+                This is general information, not legal advice. Laws vary by state and change over time.
+              </p>
+            </div>
+          </AccordionSection>
+
           {/* ── Glossary ── */}
           <AccordionSection id="glossary" title="Glossary" open={open.has("glossary")} onToggle={() => toggle("glossary")}>
             <div className="space-y-4">

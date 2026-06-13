@@ -18,6 +18,7 @@ const ICON = {
   archive: <svg viewBox="0 0 24 24" {...S} className={C}><path d="M3 8h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><path d="M2 4h20v4H2zM10 12h4" /></svg>,
   export: <svg viewBox="0 0 24 24" {...S} className={C}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5M12 15V3" /></svg>,
   safety: <svg viewBox="0 0 24 24" {...S} className={C}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="M9 12l2 2 4-4" /></svg>,
+  risk: <svg viewBox="0 0 24 24" {...S} className={C}><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>,
   guides: <svg viewBox="0 0 24 24" {...S} className={C}><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></svg>,
   resources: <svg viewBox="0 0 24 24" {...S} className={C}><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="4" /><path d="M4.9 4.9l4.2 4.2M14.9 14.9l4.2 4.2M14.9 9.1l4.2-4.2M14.9 9.1l3.5-3.5M4.9 19.1l4.2-4.2" /></svg>,
   recovery: <svg viewBox="0 0 24 24" {...S} className={C}><circle cx="8" cy="15" r="4" /><path d="M10.8 12.2L21 2M17 6l3 3M14 9l3 3" /></svg>,
@@ -37,6 +38,7 @@ const GROUPS = [
     title: "Plan & support",
     items: [
       { href: "/tools/safety", label: "Safety Plan", desc: "Planning ahead", icon: ICON.safety },
+      { href: "/tools/risk", label: "Safety risk check", desc: "Reflect on risk factors", icon: ICON.risk },
       { href: "/tools/guides", label: "Guides", desc: "Understand what's happening", icon: ICON.guides },
       { href: "/tools/resources", label: "Resources", desc: "Local support services", icon: ICON.resources },
     ],

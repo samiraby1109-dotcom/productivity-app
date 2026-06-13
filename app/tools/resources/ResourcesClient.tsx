@@ -2,6 +2,7 @@
 import { useState } from "react";
 import NavShell from "@/components/NavShell";
 import IdleLock from "@/components/IdleLock";
+import CrisisHelp from "@/components/CrisisHelp";
 import { RESOURCES, searchByZip, type Resource } from "@/data/resources-seed";
 
 interface Props {
@@ -33,6 +34,8 @@ export default function ResourcesClient({ mode, email, passwordSalt }: Props) {
           Enter your ZIP code to find local services. National lines are always shown.
           Your location is never stored.
         </p>
+
+        <CrisisHelp className="mb-6" />
 
         {/* Search bar */}
         <form onSubmit={handleSearch} className="flex gap-2 mb-6">
