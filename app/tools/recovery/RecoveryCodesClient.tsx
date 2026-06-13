@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import NavShell from "@/components/NavShell";
 import IdleLock from "@/components/IdleLock";
+import DeleteAccount from "@/components/DeleteAccount";
 import {
   getVaultKey,
   wrapVmkWithSecret,
@@ -183,6 +184,8 @@ export default function RecoveryCodesClient({ mode, email, passwordSalt }: Props
             </button>
           </div>
         )}
+
+        <DeleteAccount />
       </NavShell>
     </>
   );

@@ -29,6 +29,14 @@ interface RecordDetail {
 interface DecryptedPayload {
   notes: string;
   timestamp: string;
+  occurredAt?: string | null;
+  location?: string | null;
+}
+
+function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString("en-US", {
+    year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+  });
 }
 
 interface MediaRow {
@@ -148,9 +156,23 @@ export default function RecordDetailClient({ id, mode, email, passwordSalt }: Pr
 
         {record && !loading && (
           <div className="space-y-5">
-            <div className="bg-white rounded-xl border border-gray-100 p-4">
-              <p className="text-xs text-gray-400 mb-0.5">Recorded</p>
-              <p className="text-sm font-medium text-gray-800">{formatDate(record.created_at)}</p>
+            <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-3">
+              {decrypted?.occurredAt && (
+                <div>
+                  <p className="text-xs text-gray-400 mb-0.5">Occurred</p>
+                  <p className="text-sm font-medium text-gray-800">{formatDateTime(decrypted.occurredAt)}</p>
+                </div>
+              )}
+              {decrypted?.location && (
+                <div>
+                  <p className="text-xs text-gray-400 mb-0.5">Location</p>
+                  <p className="text-sm font-medium text-gray-800">{decrypted.location}</p>
+                </div>
+              )}
+              <div>
+                <p className="text-xs text-gray-400 mb-0.5">Logged</p>
+                <p className="text-sm font-medium text-gray-800">{formatDate(record.created_at)}</p>
+              </div>
             </div>
 
             {record.incident_types.length > 0 && (
