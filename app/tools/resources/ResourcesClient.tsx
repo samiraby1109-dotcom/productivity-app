@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import NavShell from "@/components/NavShell";
 import IdleLock from "@/components/IdleLock";
 import CrisisHelp from "@/components/CrisisHelp";
@@ -35,7 +36,19 @@ export default function ResourcesClient({ mode, email, passwordSalt }: Props) {
           Your location is never stored.
         </p>
 
-        <CrisisHelp className="mb-6" />
+        <CrisisHelp className="mb-4" />
+
+        {/* Pair with Guides — the other "in the moment" surface. */}
+        <Link
+          href="/tools/guides"
+          className="flex items-center justify-between gap-3 rounded-xl bg-white border border-gray-200 p-4 mb-6 hover:border-brand-300 transition-colors"
+        >
+          <span>
+            <span className="block text-sm font-medium text-gray-900">Understand what&apos;s happening</span>
+            <span className="block text-xs text-gray-500">Guides — recognize patterns and your options</span>
+          </span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-gray-400 flex-shrink-0"><path d="M9 18l6-6-6-6" /></svg>
+        </Link>
 
         {/* Search bar */}
         <form onSubmit={handleSearch} className="flex gap-2 mb-6">
