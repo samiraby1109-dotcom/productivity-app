@@ -108,6 +108,15 @@ export default function ResourcesClient({ mode, email, passwordSalt }: Props) {
                   <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" />
                 </svg>
               </a>
+
+              {/* Honest coverage note — curated listings are a regional pilot; the
+                  national lines and the directory search above cover every ZIP. */}
+              <p className="text-[11px] text-gray-400 leading-relaxed">
+                The national lines work anywhere and the directory above lists programs nationwide.
+                {staticResults && staticResults.local.length === 0
+                  ? " We don't yet have hand-checked local listings for this area."
+                  : ""}
+              </p>
             </div>
           )}
 
@@ -127,17 +136,27 @@ export default function ResourcesClient({ mode, email, passwordSalt }: Props) {
   );
 }
 
+// Entries like "Text HOME to 741741" are SMS shortcodes, not phone numbers —
+// a tel: link to the stripped digits would dial a wrong/invalid number.
+function isDialable(phone: string): boolean {
+  return !/text/i.test(phone) && phone.replace(/\D/g, "").length >= 7;
+}
+
 function StaticCard({ resource }: { resource: Resource }) {
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-4">
       <p className="font-medium text-gray-900 text-sm">{resource.name}</p>
       {resource.phone && (
-        <a
-          href={`tel:${resource.phone.replace(/\D/g, "")}`}
-          className="text-brand-600 text-sm font-medium mt-0.5 block hover:underline"
-        >
-          {resource.phone}
-        </a>
+        isDialable(resource.phone) ? (
+          <a
+            href={`tel:${resource.phone.replace(/\D/g, "")}`}
+            className="text-brand-600 text-sm font-medium mt-0.5 block hover:underline"
+          >
+            {resource.phone}
+          </a>
+        ) : (
+          <p className="text-brand-600 text-sm font-medium mt-0.5">{resource.phone}</p>
+        )
       )}
       <p className="text-xs text-gray-500 mt-1 leading-relaxed">{resource.description}</p>
       {resource.website && (

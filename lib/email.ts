@@ -18,11 +18,22 @@ const FROM_ADDRESS =
 
 /** Returns true if email sending is configured and enabled. */
 export function emailEnabled(): boolean {
+  const isProd = process.env.NODE_ENV === "production";
   const hasKey = !!process.env.RESEND_API_KEY;
-  const devMode = process.env.DEV_MODE === "true";
+  // DEV_MODE only suppresses email OUTSIDE production. A stray DEV_MODE=true left
+  // in a production deploy must never silently disable verification emails — in
+  // production the only switch is whether RESEND_API_KEY is configured.
+  const devMode = process.env.DEV_MODE === "true" && !isProd;
 
-  if (!hasKey) console.warn("[email] Skipping — RESEND_API_KEY is not set");
-  if (devMode) console.warn("[email] Skipping — DEV_MODE=true");
+  if (!hasKey) {
+    // In production a missing key is a misconfiguration, not an expected dev state.
+    if (isProd) console.error("[email] RESEND_API_KEY is not set in production — verification emails are DISABLED. Configure it to enable email.");
+    else console.warn("[email] Skipping — RESEND_API_KEY is not set");
+  }
+  if (process.env.DEV_MODE === "true" && isProd) {
+    console.error("[email] DEV_MODE=true is ignored in production; email stays enabled. Remove DEV_MODE from the production environment.");
+  }
+  if (devMode) console.warn("[email] Skipping — DEV_MODE=true (non-production)");
 
   return hasKey && !devMode;
 }
