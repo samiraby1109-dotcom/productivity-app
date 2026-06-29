@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import NavShell from "@/components/NavShell";
 import IdleLock from "@/components/IdleLock";
+import CoverPicker from "@/components/CoverPicker";
 import { AUTO_LOCK_OPTIONS, getAutoLockMs, setAutoLockMs, AUTO_LOCK_DEFAULT_MS } from "@/lib/autolock";
 
 interface Props {
@@ -72,6 +73,15 @@ export default function SecurityClient({ mode, email, passwordSalt }: Props) {
       <IdleLock mode={mode} email={email} passwordSalt={passwordSalt} />
       <NavShell mode={mode}>
         <h1 className="text-lg font-semibold text-gray-900 mb-5">Account security</h1>
+
+        {/* Appearance / cover */}
+        <section className="bg-white rounded-2xl border border-gray-100 p-4 mb-6">
+          <h2 className="text-sm font-semibold text-gray-900 mb-1">Appearance</h2>
+          <p className="text-xs text-gray-500 mb-3 leading-relaxed">
+            Change how the app looks and is named on this device.
+          </p>
+          <CoverPicker />
+        </section>
 
         {/* Auto-lock */}
         <section className="bg-white rounded-2xl border border-gray-100 p-4 mb-6">

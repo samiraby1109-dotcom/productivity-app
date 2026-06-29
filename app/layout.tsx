@@ -2,6 +2,14 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import PwaRegistration from "@/components/PwaRegistration";
 import PrivacyScreen from "@/components/PrivacyScreen";
+import CoverProvider from "@/components/CoverProvider";
+import { COVER_STORAGE_KEY } from "@/lib/covers";
+
+// Runs before first paint: applies the saved cover's accent ramp synchronously so
+// there's no theme flash. Name/title are reconciled by CoverProvider after hydrate.
+const COVER_BOOT_SCRIPT = `try{var c=localStorage.getItem(${JSON.stringify(
+  COVER_STORAGE_KEY
+)});if(c){document.documentElement.setAttribute('data-cover',c);}}catch(e){}`;
 
 export const metadata: Metadata = {
   title: "BelleMeadow Wellness — Daily Tracker",
@@ -33,10 +41,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="BelleMeadow Wellness" />
+        <script dangerouslySetInnerHTML={{ __html: COVER_BOOT_SCRIPT }} />
       </head>
       <body>
         <PwaRegistration />
-        {children}
+        <CoverProvider>{children}</CoverProvider>
         <PrivacyScreen />
       </body>
     </html>
