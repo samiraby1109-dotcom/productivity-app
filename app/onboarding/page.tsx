@@ -21,7 +21,6 @@ export default function OnboardingPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [passwordHint, setPasswordHint] = useState("");
   const [decoyCode, setDecoyCode] = useState("");
   const [confirmDecoy, setConfirmDecoy] = useState("");
   const [error, setError] = useState("");
@@ -86,7 +85,6 @@ export default function OnboardingPage() {
         body: JSON.stringify({
           email: email.trim(),
           password: pw,
-          passwordHint: passwordHint.trim() || undefined,
           decoyCode,
           vault: {
             vmkWrapped: vmkPw.wrapped,
@@ -181,21 +179,6 @@ export default function OnboardingPage() {
                 className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 transition"
                 placeholder="Repeat your password"
               />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Password hint <span className="text-gray-400 font-normal">(optional)</span>
-              </label>
-              <input
-                type="text"
-                value={passwordHint}
-                onChange={(e) => setPasswordHint(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 transition"
-                placeholder="A subtle reminder (not your password)"
-                maxLength={120}
-              />
-              <p className="text-xs text-gray-400 mt-1">Shown only if you tap &quot;Need help?&quot; on the login screen.</p>
             </div>
 
             <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-xs text-amber-900 leading-relaxed">

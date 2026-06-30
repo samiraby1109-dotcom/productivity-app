@@ -12,9 +12,6 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPw, setShowPw] = useState(false);
-  const [showHint, setShowHint] = useState(false);
-  const [hint, setHint] = useState<string | null>(null);
-  const [fetchingHint, setFetchingHint] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -40,48 +37,23 @@ export default function LoginPage() {
       }
 
       // For FULL mode: unwrap the vault key into memory. /api/auth/me returns
-      // the wrapped VMK (or, for legacy accounts, the password salt).
+      // the wrapped VMK (or, for legacy accounts, the password salt). If this
+      // fails we must NOT proceed to the dashboard — the vault would render
+      // unreadable ("session expired") with no explanation. Surface it instead.
       if (data.mode === "FULL") {
         const meRes = await fetch("/api/auth/me");
-        if (meRes.ok) {
-          await unlockVaultFromMe(pw, await meRes.json());
+        if (!meRes.ok) {
+          setError("Could not unlock your vault. Please try signing in again.");
+          setLoading(false);
+          return;
         }
+        await unlockVaultFromMe(pw, await meRes.json());
       }
 
       router.replace("/dashboard");
     } catch {
       setError("Something went wrong. Please try again.");
       setLoading(false);
-    }
-  }
-
-  async function handleNeedHelp() {
-    if (hint !== null) {
-      setShowHint(!showHint);
-      return;
-    }
-
-    if (!email.trim()) {
-      setShowHint(true);
-      setHint(null);
-      return;
-    }
-
-    setFetchingHint(true);
-    try {
-      // We use a dedicated hint endpoint that only reveals the hint
-      const res = await fetch("/api/auth/hint", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
-      });
-      const data = await res.json();
-      setHint(data.hint ?? null);
-    } catch {
-      setHint(null);
-    } finally {
-      setFetchingHint(false);
-      setShowHint(true);
     }
   }
 
@@ -144,7 +116,7 @@ export default function LoginPage() {
           </div>
 
           {error && (
-            <div className="space-y-2">
+            <div className="space-y-2" role="alert">
               <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
               <p className="text-xs text-gray-500 leading-relaxed">
                 Check for an accidental space (tap the eye to see what you typed) and that your
@@ -162,29 +134,6 @@ export default function LoginPage() {
             {loading ? "Signing in…" : "Sign in"}
           </button>
         </form>
-
-        {/* Need help — password hint only */}
-        <div className="mt-4 text-center">
-          <button
-            type="button"
-            onClick={handleNeedHelp}
-            className="text-xs text-gray-400 hover:text-gray-600 transition-colors underline-offset-2 hover:underline"
-          >
-            {fetchingHint ? "Looking up…" : "Need help?"}
-          </button>
-
-          {showHint && (
-            <div className="mt-2 bg-amber-50 border border-amber-100 rounded-lg px-4 py-3 text-sm text-amber-800 text-left">
-              {hint ? (
-                <>
-                  <span className="font-medium">Your hint:</span> {hint}
-                </>
-              ) : (
-                <span>No hint stored. Enter your email first to look up your hint.</span>
-              )}
-            </div>
-          )}
-        </div>
 
         {/* Register link */}
         <p className="mt-6 text-center text-xs text-gray-500">
