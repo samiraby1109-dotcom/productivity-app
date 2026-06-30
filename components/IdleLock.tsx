@@ -37,11 +37,25 @@ export default function IdleLock({ mode, email }: Props) {
     const events = ["mousemove", "keydown", "touchstart", "scroll", "click", "bw-autolock-change"];
     events.forEach((e) => window.addEventListener(e, resetTimer, { passive: true }));
     resetTimer();
+
+    // Lock immediately when the app is backgrounded/hidden. Mobile browsers
+    // heavily throttle background timers, so the idle timer alone can leave the
+    // vault unlocked long after the screen is put away — exactly when an abuser
+    // is most likely to pick up the phone. visibilitychange/pagehide fire
+    // reliably on app-switch, screen-off, and tab-hide.
+    const onHide = () => {
+      if (document.visibilityState === "hidden") lock();
+    };
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("pagehide", onHide);
+
     return () => {
       events.forEach((e) => window.removeEventListener(e, resetTimer));
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("pagehide", onHide);
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [resetTimer]);
+  }, [resetTimer, lock]);
 
   async function handleUnlock(e: React.FormEvent) {
     e.preventDefault();

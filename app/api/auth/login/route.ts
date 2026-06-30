@@ -129,8 +129,11 @@ export async function POST(req: NextRequest) {
     // failed attempts. Brute force is still bounded by the per-IP PIN rate
     // limit (3/min) applied above. The decoy stays independent of the password
     // lockout counters and never reads or clears them.
-    if (isDigitsOnly && verifyDecoyCode(password, user.decoy_code_hash, decoySecret)) {
-      console.warn("[login] outcome=decoy_ok", { userId: user.id });
+    if (isDigitsOnly && (await verifyDecoyCode(password, user.decoy_code_hash, decoySecret))) {
+      // Neutral outcome label: do NOT distinguish decoy vs full in logs, or
+      // anyone with log access learns the dual-mode design exists (weakening
+      // plausible deniability if logs are leaked/subpoenaed).
+      console.info("[login] outcome=ok", { userId: user.id });
       const token = await signSession({
         userId: user.id,
         email: user.email,
@@ -163,7 +166,7 @@ export async function POST(req: NextRequest) {
     }
 
     await clearAttemptsDb(lockoutDb, user.id);
-    console.info("[login] outcome=full_ok", { userId: user.id });
+    console.info("[login] outcome=ok", { userId: user.id });
     const token = await signSession({
       userId: user.id,
       email: user.email,

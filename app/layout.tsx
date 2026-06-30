@@ -31,7 +31,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
+  // Do NOT cap maximumScale / set userScalable:false — that blocks pinch-zoom
+  // (WCAG 1.4.4). Low-vision users must be able to enlarge crisis numbers.
   themeColor: "#4f6b54",
 };
 

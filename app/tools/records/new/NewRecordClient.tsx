@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import NavShell from "@/components/NavShell";
 import IdleLock from "@/components/IdleLock";
@@ -62,6 +62,10 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [nudgeCount, setNudgeCount] = useState<number | null>(null);
+  // Remembers an already-created entry so that retrying after a failed
+  // attachment upload does NOT create a duplicate record.
+  const savedEntryIdRef = useRef<string | null>(null);
+  const savedTotalRef = useRef<number | null>(null);
 
   function toggleType(key: IncidentTypeKey) {
     setIncidentTypes((prev) =>
@@ -91,36 +95,57 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
         timestamp: new Date().toISOString(),
       };
 
-      const encrypted = await encryptPayload(payload, vaultKey);
-      const encryptedPayloadStr = JSON.stringify(encrypted);
+      // Create the record — unless a previous submit already created it and we
+      // are only retrying failed attachment uploads (avoids duplicate entries).
+      let entryId = savedEntryIdRef.current;
+      let totalCount = savedTotalRef.current;
+      if (!entryId) {
+        const encrypted = await encryptPayload(payload, vaultKey);
+        const encryptedPayloadStr = JSON.stringify(encrypted);
+        const res = await fetch("/api/records", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            encryptedPayload: encryptedPayloadStr,
+            incidentTypes,
+            flagsPolice,
+            flagsChildren,
+            flagsWitness,
+          }),
+        });
 
-      // Create the record
-      const res = await fetch("/api/records", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          encryptedPayload: encryptedPayloadStr,
-          incidentTypes,
-          flagsPolice,
-          flagsChildren,
-          flagsWitness,
-        }),
-      });
+        if (!res.ok) {
+          const data = await res.json();
+          setError(data.error ?? "Failed to save entry.");
+          setSubmitting(false);
+          return;
+        }
 
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.error ?? "Failed to save entry.");
-        setSubmitting(false);
-        return;
+        const created = await res.json();
+        entryId = created.id as string;
+        totalCount = created.totalCount as number;
+        savedEntryIdRef.current = entryId;
+        savedTotalRef.current = totalCount;
       }
 
-      const { id: entryId, totalCount } = await res.json();
-
-      // Encrypt and upload attachments
+      // Encrypt and upload attachments, tracking any that fail so we never
+      // pretend the entry is complete when an attachment didn't make it.
+      const failedUploads: string[] = [];
       if (files.length > 0) {
         for (const file of files) {
-          await uploadFile(file, entryId, vaultKey);
+          const ok = await uploadFile(file, entryId, vaultKey);
+          if (!ok) failedUploads.push(file.name || "attachment");
         }
+      }
+
+      if (failedUploads.length > 0) {
+        const n = failedUploads.length;
+        setError(
+          `Your entry was saved, but ${n} attachment${n > 1 ? "s" : ""} could not be uploaded (${failedUploads.join(", ")}). ` +
+            `${n > 1 ? "They were" : "It was"} NOT stored. Tap Save to try the upload again — your entry won't be duplicated.`
+        );
+        setSubmitting(false);
+        return; // do NOT navigate away as if everything succeeded
       }
 
       // Show trusted-contact nudge at every 10th entry
@@ -138,7 +163,8 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
     }
   }
 
-  async function uploadFile(file: File, entryId: string, vaultKey: CryptoKey) {
+  // Returns true if the attachment uploaded successfully, false otherwise.
+  async function uploadFile(file: File, entryId: string, vaultKey: CryptoKey): Promise<boolean> {
     try {
       const toUpload = stripMetadata ? await stripImageMetadata(file) : file;
       const fileKey = await generateFileKey();
@@ -164,7 +190,8 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
       const res = await fetch("/api/media/upload", { method: "POST", body: fd });
 
       if (!res.ok) {
-        // Queue for offline retry
+        // Keep a local encrypted copy as a backup, but report failure so the
+        // caller surfaces it — never let a failed evidence upload look saved.
         await enqueueUpload({
           id: uuidv4(),
           entryId,
@@ -177,10 +204,12 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
           sizeBytes: toUpload.size,
           createdAt: new Date().toISOString(),
           retries: 0,
-        });
+        }).catch(() => {});
+        return false;
       }
+      return true;
     } catch {
-      // Queue for retry
+      return false;
     }
   }
 
