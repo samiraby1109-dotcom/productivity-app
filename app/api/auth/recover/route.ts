@@ -4,6 +4,8 @@ import { hashPassword } from "@/lib/auth";
 import { normalizePassword } from "@/lib/password";
 import { apiError, requireJsonBody } from "@/lib/server-session";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { emailEnabled, sendRecoveryConfirmEmail } from "@/lib/email";
+import { signResetConfirmToken } from "@/lib/verify-token";
 
 /**
  * POST /api/auth/recover — regain access with a recovery code.
@@ -93,6 +95,31 @@ export async function POST(req: NextRequest) {
 
     const newHash = await hashPassword(npw);
 
+    // When email is configured, do NOT apply the reset yet: send a confirmation
+    // link to the account email and apply only when it's clicked. This stops a
+    // found recovery code from completing a takeover without inbox access. The
+    // pending change (hash + already-wrapped VMK, both non-plaintext) rides in a
+    // short-lived signed token, so no pending-state table is needed.
+    if (emailEnabled()) {
+      const token = await signResetConfirmToken({
+        userId: user.id,
+        codeId: code.id,
+        newHash,
+        vmkWrapped: vault.wrapped,
+        vmkWrappedIv: vault.iv,
+        vmkSalt: vault.salt,
+      });
+      const confirmUrl = `${new URL(req.url).origin}/api/auth/recover/confirm?token=${encodeURIComponent(token)}`;
+      await sendRecoveryConfirmEmail(emailNorm, confirmUrl);
+      // Neutral response either way (don't reveal whether the email exists).
+      return Response.json({ ok: true, pendingConfirmation: true });
+    }
+
+    // No email configured (e.g. local/dev, or email not yet set up pre-launch):
+    // fall back to applying immediately so recovery isn't impossible. Production
+    // MUST configure email so the confirmation step is enforced.
+    console.warn("[recover] email not configured — applying reset WITHOUT email confirmation");
+
     const { error: updErr } = await db
       .from("users")
       .update({
@@ -116,7 +143,7 @@ export async function POST(req: NextRequest) {
       .update({ used_at: new Date().toISOString() })
       .eq("id", code.id);
 
-    return Response.json({ ok: true });
+    return Response.json({ ok: true, pendingConfirmation: false });
   } catch (err) {
     console.error("Recover error:", err);
     return apiError(500, "Internal server error");

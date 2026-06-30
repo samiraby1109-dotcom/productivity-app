@@ -21,6 +21,8 @@ export default function RecoverPage() {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // True when the reset needs email confirmation before it takes effect.
+  const [pendingConfirm, setPendingConfirm] = useState(false);
 
   // The VMK (unwrapped client-side from the code) and the lookup hash that
   // matched are held only in memory, only between the two steps.
@@ -115,6 +117,7 @@ export default function RecoverPage() {
       setVmk(null);
       setNewPassword("");
       setConfirm("");
+      setPendingConfirm(!!data.pendingConfirmation);
       setPhase("done");
     } catch {
       setError("Could not reset your password. Try again.");
@@ -211,7 +214,27 @@ export default function RecoverPage() {
           </form>
         )}
 
-        {phase === "done" && (
+        {phase === "done" && pendingConfirm && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4 text-center">
+            <div className="text-4xl">✉️</div>
+            <p className="text-sm text-gray-700">
+              Almost done. We&apos;ve emailed you a link to confirm this change — open it to
+              finish setting your new password. The link expires in 30 minutes.
+            </p>
+            <p className="text-xs text-gray-500">
+              Your password hasn&apos;t changed yet, and nothing changes if you ignore the email.
+              Check spam if you don&apos;t see it.
+            </p>
+            <Link
+              href="/login"
+              className="inline-block w-full py-2.5 rounded-xl bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 transition-colors"
+            >
+              Back to sign in
+            </Link>
+          </div>
+        )}
+
+        {phase === "done" && !pendingConfirm && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4 text-center">
             <div className="text-4xl">✓</div>
             <p className="text-sm text-gray-700">

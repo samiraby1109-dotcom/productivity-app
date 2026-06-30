@@ -33,3 +33,42 @@ export async function verifyVerifyToken(token: string): Promise<VerifyTokenPaylo
     return null;
   }
 }
+
+// ─── Recovery-reset confirmation token ────────────────────────────────────────
+// A password reset via recovery code is not applied until the user clicks a link
+// sent to their account email. The pending change (new password HASH + the VMK
+// re-wrapped under the new password — both already non-plaintext) rides inside a
+// short-lived signed token, so no pending-state table is needed. An attacker who
+// holds a found recovery code cannot complete a reset without also controlling
+// the survivor's email inbox.
+const RESET_CONFIRM_EXPIRY = "30m";
+
+export interface ResetConfirmPayload {
+  userId: string;
+  codeId: string;
+  newHash: string;
+  vmkWrapped: string;
+  vmkWrappedIv: string;
+  vmkSalt: string;
+  purpose: "reset-confirm";
+}
+
+export async function signResetConfirmToken(
+  data: Omit<ResetConfirmPayload, "purpose">,
+): Promise<string> {
+  return new SignJWT({ ...data, purpose: "reset-confirm" })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime(RESET_CONFIRM_EXPIRY)
+    .sign(getSessionSecret());
+}
+
+export async function verifyResetConfirmToken(token: string): Promise<ResetConfirmPayload | null> {
+  try {
+    const { payload } = await jwtVerify(token, getSessionSecret(), { algorithms: ["HS256"] });
+    if (payload.purpose !== "reset-confirm") return null;
+    return payload as unknown as ResetConfirmPayload;
+  } catch {
+    return null;
+  }
+}

@@ -133,6 +133,62 @@ export async function sendWelcomeEmail(to: string): Promise<void> {
 }
 
 /**
+ * Recovery password-change confirmation — sends a neutral link that must be
+ * clicked to finish a password reset started with a recovery code. This ties the
+ * reset to control of the account email, so a found recovery code alone cannot
+ * complete a takeover. Neutral subject/body — never references the true purpose.
+ */
+export async function sendRecoveryConfirmEmail(to: string, confirmUrl: string): Promise<boolean> {
+  return sendEmail({
+    to,
+    subject: "Confirm a change to your BelleMeadow Wellness account",
+    text: [
+      "Hi,",
+      "",
+      "We received a request to update the password on your BelleMeadow Wellness account.",
+      "To confirm it, visit the link below. This link expires in 30 minutes.",
+      "",
+      confirmUrl,
+      "",
+      "If you did not request this, you can safely ignore this email — nothing will change.",
+      "",
+      "— The BelleMeadow Wellness Team",
+    ].join("\n"),
+    html: `
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:system-ui,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 16px">
+    <tr><td align="center">
+      <table width="100%" style="max-width:480px;background:#fff;border-radius:12px;border:1px solid #e5e7eb;padding:32px">
+        <tr><td>
+          <p style="margin:0 0 8px;font-size:20px;font-weight:600;color:#111827">BelleMeadow Wellness</p>
+          <hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">
+          <p style="color:#374151;font-size:15px;line-height:1.6">
+            We received a request to update your account password. Confirm it below. This link expires in 30 minutes.
+          </p>
+          <a href="${confirmUrl}"
+             style="display:inline-block;margin:20px 0;padding:12px 28px;background:#0ea5e9;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px">
+            Confirm password change
+          </a>
+          <p style="color:#6b7280;font-size:13px;margin-top:8px">
+            If the button doesn't work, copy and paste this link:<br>
+            <a href="${confirmUrl}" style="color:#0ea5e9;word-break:break-all">${confirmUrl}</a>
+          </p>
+          <p style="color:#6b7280;font-size:13px;margin-top:16px">
+            If you did not request this, you can safely ignore this email — nothing will change.
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`,
+  });
+}
+
+/**
  * Email verification — sends a tokenised link the user can click to confirm
  * their email address. Verification is soft (non-blocking): the account works
  * regardless of whether the link is clicked.
