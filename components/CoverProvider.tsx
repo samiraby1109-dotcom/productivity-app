@@ -73,6 +73,16 @@ function applyCover(cover: Cover): void {
   document.title = coverTitle(cover);
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute("content", cover.themeColor);
+
+  // Install identity: point the PWA manifest + iOS home-screen icon/title at this
+  // cover so an "Add to Home Screen" / install adopts its name and icon. (Existing
+  // installs keep whatever they were installed with — this affects new installs.)
+  const manifest = document.querySelector('link[rel="manifest"]');
+  if (manifest) manifest.setAttribute("href", cover.manifestPath);
+  const apple = document.querySelector('link[rel="apple-touch-icon"]');
+  if (apple) apple.setAttribute("href", cover.appleTouchIcon);
+  const appleTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+  if (appleTitle) appleTitle.setAttribute("content", cover.shortName);
 }
 
 export default function CoverProvider({ children }: { children: React.ReactNode }) {

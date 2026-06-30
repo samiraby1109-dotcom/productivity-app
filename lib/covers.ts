@@ -29,6 +29,11 @@ export interface Cover {
   themeColor: string;
   /** Representative accent hex for the cover picker swatch (mirrors --brand-500). */
   swatch: string;
+  /** Static web-app manifest for this cover's install identity (name + icons).
+   *  Swapped onto <link rel="manifest"> at runtime so an install picks it up. */
+  manifestPath: string;
+  /** iOS "Add to Home Screen" icon for this cover. */
+  appleTouchIcon: string;
 }
 
 export const COVERS: Cover[] = [
@@ -40,6 +45,8 @@ export const COVERS: Cover[] = [
     tagline: "Tasks, notes, and habits in one quiet place.",
     themeColor: "#4f6b54",
     swatch: "#648469",
+    manifestPath: "/manifest.json",
+    appleTouchIcon: "/icons/apple-touch-icon.png",
   },
   {
     id: "daybook",
@@ -49,6 +56,8 @@ export const COVERS: Cover[] = [
     tagline: "Notes and lists for your day.",
     themeColor: "#45597a",
     swatch: "#566f92",
+    manifestPath: "/manifest-daybook.json",
+    appleTouchIcon: "/icons/apple-touch-icon-daybook.png",
   },
 ];
 
