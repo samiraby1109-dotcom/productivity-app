@@ -64,6 +64,16 @@ export const COVERS: Cover[] = [
 /** The cover used by default (server render + first paint). */
 export const DEFAULT_COVER_ID = "belle";
 
+/** All cover ids in registry order — used by the randomized first-run default. */
+export const COVER_IDS = COVERS.map((c) => c.id);
+
+/** Pick a random cover id. Used to vary the *default* on first run so devices
+ *  don't all start on the same look (varying the disguise is the whole point).
+ *  Browser-only (uses Math.random) — never call during SSR. */
+export function pickRandomCoverId(): string {
+  return COVER_IDS[Math.floor(Math.random() * COVER_IDS.length)];
+}
+
 /** localStorage key holding the chosen cover id (per device — the cover is what
  *  this device shows; it is not tied to the encrypted account). */
 export const COVER_STORAGE_KEY = "bw_cover";

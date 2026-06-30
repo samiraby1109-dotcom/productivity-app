@@ -24,6 +24,11 @@ we can ship 2–4 believable covers.
   (per-device `localStorage`), sets `data-cover`, the document title, and the
   `<meta theme-color>`, and exposes `useCover()`. A small inline script in the
   root layout applies the accent **before first paint** (no flash).
+- **Randomized default** — on first run (no saved choice) the boot script picks a
+  **random** cover and persists it, so devices don't all start on the same look
+  (a uniform default would defeat the spread). The user can still override it in
+  the picker; once chosen, the choice is sticky. `CoverProvider` carries a
+  post-hydrate fallback that does the same pick if the inline script was blocked.
 - **Wordmark** — `components/CoverLogo.tsx` renders the image logo for the
   default cover and a styled text wordmark for others; `CoverName` is a text-only
   variant used on the landing page.

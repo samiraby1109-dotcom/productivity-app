@@ -3,13 +3,17 @@ import "./globals.css";
 import PwaRegistration from "@/components/PwaRegistration";
 import PrivacyScreen from "@/components/PrivacyScreen";
 import CoverProvider from "@/components/CoverProvider";
-import { COVER_STORAGE_KEY } from "@/lib/covers";
+import { COVER_STORAGE_KEY, COVER_IDS } from "@/lib/covers";
 
 // Runs before first paint: applies the saved cover's accent ramp synchronously so
-// there's no theme flash. Name/title are reconciled by CoverProvider after hydrate.
-const COVER_BOOT_SCRIPT = `try{var c=localStorage.getItem(${JSON.stringify(
+// there's no theme flash. On first run (no saved choice) it picks a RANDOM cover
+// and persists it, so devices don't all start on the same look. Name/title/manifest
+// are reconciled by CoverProvider after hydrate.
+const COVER_BOOT_SCRIPT = `try{var K=${JSON.stringify(
   COVER_STORAGE_KEY
-)});if(c){document.documentElement.setAttribute('data-cover',c);}}catch(e){}`;
+)},ids=${JSON.stringify(
+  COVER_IDS
+)},c=localStorage.getItem(K);if(!c){c=ids[Math.floor(Math.random()*ids.length)];localStorage.setItem(K,c);}document.documentElement.setAttribute('data-cover',c);}catch(e){}`;
 
 export const metadata: Metadata = {
   title: "BelleMeadow Wellness — Daily Tracker",
