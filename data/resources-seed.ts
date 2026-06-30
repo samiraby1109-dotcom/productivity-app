@@ -1,7 +1,13 @@
 /**
  * Curated local support resources seed.
- * Kansas City metro area + national hotlines.
- * Expand by adding more ZIP entries or state-level entries.
+ *
+ * SCOPE (be honest with reviewers): the national hotlines below are verified and
+ * apply everywhere. Hand-checked LOCAL listings currently cover the Kansas City
+ * metro only — this is a regional pilot, not a national database. For any other
+ * ZIP the UI falls back to national lines + the DomesticShelters.org directory
+ * (3,300+ programs nationwide), so a survivor anywhere still gets a real path.
+ *
+ * Expand by adding more ZIP/state entries (planned: CSV import in V2).
  * All data is static — no web scraping, no Google lookups.
  */
 

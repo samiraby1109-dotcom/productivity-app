@@ -214,13 +214,13 @@ object-src 'none'
 ## Limitations (MVP)
 
 - [ ] Argon2id WASM preferred over PBKDF2 — upgrade post-MVP
-- [ ] In-memory lockout store resets on server restart — use Redis/DB in production
+- [x] Login lockout is DB-backed (`users.failed_attempts` / `locked_until`, migration 008) and the rate limiter is Supabase-backed (migrations 006/009), so both survive server restarts and work across serverless instances. The in-memory map in `lib/auth.ts` is a unit-test/fallback helper only.
 - [x] Recovery codes: issued at onboarding for new accounts; existing accounts enrol/regenerate under Tools → Recovery codes
 - [ ] Biometric lock is not implemented (delegated to OS screen lock)
 - [ ] Argon2id requires WASM which needs `unsafe-eval` in CSP — switch to nonces in production
-- [ ] Media download/decryption UI is not yet implemented (metadata visible, download requires further work)
-- [ ] National resource database is manually curated — expand with CSV import in V2
-- [ ] No email verification in DEV_MODE — enable before production launch
+- [x] Media upload **and** download/decrypt are implemented end-to-end: attachments are encrypted client-side on add (`NewRecordClient`) and fetched → key-unwrapped → decrypted → viewed in-app (`RecordDetailClient`). Decrypted media is held only as an ephemeral in-memory `blob:` URL (revoked on close) — no plaintext is written to disk. A deliberate "save decrypted copy to device" affordance is intentionally **not** shipped pending advocate input (writing plaintext to the device Downloads folder is a DV-discovery risk).
+- [ ] Local resource listings are a Kansas City metro pilot; national lines + the DomesticShelters.org directory cover every other ZIP. Expand curated coverage via CSV import in V2.
+- [x] Email verification: implemented and soft (never blocks access — a deliberate survivor-safety choice). `DEV_MODE` only suppresses sending **outside** production; in production it is ignored, so verification stays on whenever `RESEND_API_KEY` is configured. Set that key before launch.
 
 ---
 

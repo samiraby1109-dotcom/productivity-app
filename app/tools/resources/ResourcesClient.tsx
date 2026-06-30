@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import NavShell from "@/components/NavShell";
 import IdleLock from "@/components/IdleLock";
 import CrisisHelp from "@/components/CrisisHelp";
@@ -35,7 +36,19 @@ export default function ResourcesClient({ mode, email, passwordSalt }: Props) {
           Your location is never stored.
         </p>
 
-        <CrisisHelp className="mb-6" />
+        <CrisisHelp className="mb-4" />
+
+        {/* Pair with Guides — the other "in the moment" surface. */}
+        <Link
+          href="/tools/guides"
+          className="flex items-center justify-between gap-3 rounded-xl bg-white border border-gray-200 p-4 mb-6 hover:border-brand-300 transition-colors"
+        >
+          <span>
+            <span className="block text-sm font-medium text-gray-900">Understand what&apos;s happening</span>
+            <span className="block text-xs text-gray-500">Guides — recognize patterns and your options</span>
+          </span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-gray-400 flex-shrink-0"><path d="M9 18l6-6-6-6" /></svg>
+        </Link>
 
         {/* Search bar */}
         <form onSubmit={handleSearch} className="flex gap-2 mb-6">
@@ -95,6 +108,15 @@ export default function ResourcesClient({ mode, email, passwordSalt }: Props) {
                   <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" />
                 </svg>
               </a>
+
+              {/* Honest coverage note — curated listings are a regional pilot; the
+                  national lines and the directory search above cover every ZIP. */}
+              <p className="text-[11px] text-gray-400 leading-relaxed">
+                The national lines work anywhere and the directory above lists programs nationwide.
+                {staticResults && staticResults.local.length === 0
+                  ? " We don't yet have hand-checked local listings for this area."
+                  : ""}
+              </p>
             </div>
           )}
 
@@ -114,17 +136,27 @@ export default function ResourcesClient({ mode, email, passwordSalt }: Props) {
   );
 }
 
+// Entries like "Text HOME to 741741" are SMS shortcodes, not phone numbers —
+// a tel: link to the stripped digits would dial a wrong/invalid number.
+function isDialable(phone: string): boolean {
+  return !/text/i.test(phone) && phone.replace(/\D/g, "").length >= 7;
+}
+
 function StaticCard({ resource }: { resource: Resource }) {
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-4">
       <p className="font-medium text-gray-900 text-sm">{resource.name}</p>
       {resource.phone && (
-        <a
-          href={`tel:${resource.phone.replace(/\D/g, "")}`}
-          className="text-brand-600 text-sm font-medium mt-0.5 block hover:underline"
-        >
-          {resource.phone}
-        </a>
+        isDialable(resource.phone) ? (
+          <a
+            href={`tel:${resource.phone.replace(/\D/g, "")}`}
+            className="text-brand-600 text-sm font-medium mt-0.5 block hover:underline"
+          >
+            {resource.phone}
+          </a>
+        ) : (
+          <p className="text-brand-600 text-sm font-medium mt-0.5">{resource.phone}</p>
+        )
       )}
       <p className="text-xs text-gray-500 mt-1 leading-relaxed">{resource.description}</p>
       {resource.website && (

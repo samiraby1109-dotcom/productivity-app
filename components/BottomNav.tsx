@@ -23,11 +23,16 @@ const TABS: Tab[] = [
     icon: <svg viewBox="0 0 24 24" {...stroke} className="w-6 h-6"><path d="M4 4a2 2 0 0 1 2-2h8l6 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" /><path d="M14 2v6h6M8 13h8M8 17h6" /></svg>,
   },
   {
-    href: "/tools/safety", label: "Plan", match: (p) => p.startsWith("/tools/safety"),
-    icon: <svg viewBox="0 0 24 24" {...stroke} className="w-6 h-6"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="M9 12l2 2 4-4" /></svg>,
+    // Crisis-first slot: leads to Resources (hotline + local services) and Guides —
+    // the content a survivor needs "in the moment". Kept in the prime thumb position.
+    href: "/tools/resources", label: "Support",
+    match: (p) => p.startsWith("/tools/resources") || p.startsWith("/tools/guides"),
+    icon: <svg viewBox="0 0 24 24" {...stroke} className="w-6 h-6"><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="4" /><path d="M4.9 4.9l4.2 4.2M14.9 14.9l4.2 4.2M14.9 9.1l4.2-4.2M4.9 19.1l4.2-4.2" /></svg>,
   },
   {
-    href: "/tools", label: "More", match: (p) => p === "/tools" || (p.startsWith("/tools/") && !p.startsWith("/tools/records") && !p.startsWith("/tools/safety")),
+    // Everything else, including the Safety Plan (go-bag, escape fund) — calm-time planning.
+    href: "/tools", label: "More",
+    match: (p) => p === "/tools" || (p.startsWith("/tools/") && !p.startsWith("/tools/records") && !p.startsWith("/tools/resources") && !p.startsWith("/tools/guides")),
     icon: <svg viewBox="0 0 24 24" {...stroke} className="w-6 h-6"><circle cx="5" cy="12" r="1.4" /><circle cx="12" cy="12" r="1.4" /><circle cx="19" cy="12" r="1.4" /></svg>,
   },
 ];

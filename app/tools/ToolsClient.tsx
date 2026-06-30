@@ -27,6 +27,14 @@ const ICON = {
 
 const GROUPS = [
   {
+    // Crisis-first: the content needed "in the moment" sits at the top of the hub.
+    title: "Get help now",
+    items: [
+      { href: "/tools/resources", label: "Resources", desc: "Hotlines & local support", icon: ICON.resources },
+      { href: "/tools/guides", label: "Guides", desc: "Understand what's happening", icon: ICON.guides },
+    ],
+  },
+  {
     title: "Document",
     items: [
       { href: "/tools/records", label: "Records", desc: "View and add entries", icon: ICON.records },
@@ -36,12 +44,11 @@ const GROUPS = [
     ],
   },
   {
-    title: "Plan & support",
+    // Calm-time planning: go-bag, escape fund, risk reflection — work on when not in crisis.
+    title: "Plan ahead",
     items: [
-      { href: "/tools/safety", label: "Safety Plan", desc: "Planning ahead", icon: ICON.safety },
+      { href: "/tools/safety", label: "Safety Plan", desc: "Go-bag, escape fund & more", icon: ICON.safety },
       { href: "/tools/risk", label: "Safety risk check", desc: "Reflect on risk factors", icon: ICON.risk },
-      { href: "/tools/guides", label: "Guides", desc: "Understand what's happening", icon: ICON.guides },
-      { href: "/tools/resources", label: "Resources", desc: "Local support services", icon: ICON.resources },
     ],
   },
   {

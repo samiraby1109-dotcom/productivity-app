@@ -11,6 +11,7 @@ import {
 } from "@/lib/crypto";
 import { formatRecoveryCode } from "@/lib/recovery-format";
 import { normalizePassword } from "@/lib/password";
+import CoverPicker from "@/components/CoverPicker";
 
 type Step = "account" | "decoy" | "disclosure" | "recovery";
 
@@ -142,6 +143,8 @@ export default function OnboardingPage() {
         {step === "account" && (
           <form onSubmit={handleAccountNext} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
             <h2 className="font-semibold text-gray-900">Your account</h2>
+
+            <CoverPicker className="pb-1" />
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>

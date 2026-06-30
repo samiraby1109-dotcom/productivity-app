@@ -5,9 +5,9 @@
  * Decoy mode: header only — no tabs, no tools link, no exit affordance.
  */
 import Link from "next/link";
-import Image from "next/image";
 import BottomNav from "./BottomNav";
 import SafetyWalkthrough from "./SafetyWalkthrough";
+import CoverLogo from "./CoverLogo";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -31,8 +31,8 @@ export default function NavShell({ mode, children }: Props) {
       </a>
       {/* Top bar */}
       <header className="bg-white/90 backdrop-blur border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-30">
-        <Link href="/dashboard" aria-label="BelleMeadow Wellness">
-          <Image src="/logo.png" alt="BelleMeadow Wellness" width={140} height={56} className="h-9 w-auto" priority />
+        <Link href="/dashboard" aria-label="Home">
+          <CoverLogo className="h-9 w-auto" />
         </Link>
 
         <button

@@ -9,18 +9,21 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Muted sage — calm, natural, reads as wellness. Replaces the old sky blue.
+        // Brand accent is driven by CSS variables so a "cover" skin can re-theme
+        // the whole app by setting one [data-cover] attribute. The default ramp
+        // (muted sage) is defined in globals.css :root — unchanged from before.
+        // `<alpha-value>` keeps Tailwind's /opacity modifiers working.
         brand: {
-          50: "#f3f6f3",
-          100: "#e6ece6",
-          200: "#cdd9cd",
-          300: "#abc0ad",
-          400: "#84a088",
-          500: "#648469",
-          600: "#4f6b54",
-          700: "#415645",
-          800: "#36463a",
-          900: "#2e3b31",
+          50: "rgb(var(--brand-50) / <alpha-value>)",
+          100: "rgb(var(--brand-100) / <alpha-value>)",
+          200: "rgb(var(--brand-200) / <alpha-value>)",
+          300: "rgb(var(--brand-300) / <alpha-value>)",
+          400: "rgb(var(--brand-400) / <alpha-value>)",
+          500: "rgb(var(--brand-500) / <alpha-value>)",
+          600: "rgb(var(--brand-600) / <alpha-value>)",
+          700: "rgb(var(--brand-700) / <alpha-value>)",
+          800: "rgb(var(--brand-800) / <alpha-value>)",
+          900: "rgb(var(--brand-900) / <alpha-value>)",
         },
         // Override the default gray with a warm sand/taupe, so every existing
         // bg-gray-50 / text-gray-900 / border-gray-100 across the app warms up

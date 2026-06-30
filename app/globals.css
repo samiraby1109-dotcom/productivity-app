@@ -2,6 +2,39 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Cover accent ramps ───────────────────────────────────────────────────────
+ * Brand colours are CSS variables (space-separated RGB channels, for Tailwind's
+ * `rgb(var(--x) / <alpha>)` form). Each cover skin sets `data-cover` on <html>
+ * to swap the whole accent ramp. `:root` is the default (sage / "belle") so the
+ * app looks identical unless another cover is chosen. See lib/covers.ts. */
+:root,
+[data-cover="belle"] {
+  --brand-50: 243 246 243;
+  --brand-100: 230 236 230;
+  --brand-200: 205 217 205;
+  --brand-300: 171 192 173;
+  --brand-400: 132 160 136;
+  --brand-500: 100 132 105;
+  --brand-600: 79 107 84;
+  --brand-700: 65 86 69;
+  --brand-800: 54 70 58;
+  --brand-900: 46 59 49;
+}
+
+/* "Daybook" — muted slate blue, clearly distinct from the sage default. */
+[data-cover="daybook"] {
+  --brand-50: 244 246 249;
+  --brand-100: 231 236 242;
+  --brand-200: 205 214 227;
+  --brand-300: 166 182 205;
+  --brand-400: 117 137 168;
+  --brand-500: 86 111 146;
+  --brand-600: 69 89 122;
+  --brand-700: 58 74 100;
+  --brand-800: 49 62 84;
+  --brand-900: 43 53 71;
+}
+
 @layer base {
   html {
     font-family: Inter, system-ui, sans-serif;
@@ -19,7 +52,7 @@
 
   /* Visible keyboard focus everywhere (only for keyboard nav, not mouse clicks) */
   :focus-visible {
-    outline: 2px solid theme("colors.brand.600");
+    outline: 2px solid rgb(var(--brand-600));
     outline-offset: 2px;
     border-radius: 2px;
   }
