@@ -374,11 +374,17 @@ export default function ExportClient({ mode, email, passwordSalt }: Props) {
 
           try {
             const plain = await decryptMediaItem(m, vaultKey);
+            // SHA-256 of the decrypted image itself — proves THIS exact file wasn't
+            // swapped. Anyone can re-hash the image and compare to this value.
+            const mediaHash = await sha256Hex(plain);
 
             // Detect format from magic bytes — works even if stored MIME type is wrong
             const fmt = detectImageFormat(plain);
             if (!fmt) {
               doc.text(`[Image format not supported in PDF — retrieve via ZIP export]`, M, 56);
+              doc.setFont("courier", "normal"); doc.setFontSize(7); doc.setTextColor(120);
+              doc.text(`Image SHA-256: ${mediaHash}`, M, 68);
+              doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(100);
               continue;
             }
 
@@ -386,10 +392,13 @@ export default function ExportClient({ mode, email, passwordSalt }: Props) {
             const dataUrl = `data:${fmt.mime};base64,${b64}`;
 
             doc.text(`Image attachment (${(m.size_bytes / 1024).toFixed(0)} KB) — File ID ${m.id}`, M, 54);
+            doc.setFont("courier", "normal"); doc.setFontSize(7); doc.setTextColor(120);
+            doc.text(`Image SHA-256: ${mediaHash}`, M, 66);
+            doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(100);
 
             // Fit image in page (letter 612×792pt, 40pt margins)
             const maxW = 532;
-            const maxH = 640;
+            const maxH = 618;
             const img = new Image();
             await new Promise<void>((resolve, reject) => {
               img.onload = () => resolve();
@@ -397,7 +406,7 @@ export default function ExportClient({ mode, email, passwordSalt }: Props) {
               img.src = dataUrl;
             });
             const ratio = Math.min(maxW / img.width, maxH / img.height, 1);
-            doc.addImage(dataUrl, fmt.ext, M, 68, img.width * ratio, img.height * ratio);
+            doc.addImage(dataUrl, fmt.ext, M, 82, img.width * ratio, img.height * ratio);
           } catch {
             doc.text(`[Image could not be embedded — retrieve via ZIP export]`, M, 56);
           }
@@ -481,7 +490,9 @@ export default function ExportClient({ mode, email, passwordSalt }: Props) {
               : (m.mime_type.split("/")[1]?.split(";")[0] ?? "bin");
             const filename = `media/${entry.id}/${m.id}.${ext}`;
             zip.file(filename, plain);
-            mediaFileList.push(`${filename} (${m.kind}, ${(m.size_bytes / 1024).toFixed(0)} KB)`);
+            // Per-file SHA-256 so each attachment in the ZIP is independently verifiable.
+            const fileHash = await sha256Hex(plain);
+            mediaFileList.push(`${filename} (${m.kind}, ${(m.size_bytes / 1024).toFixed(0)} KB) — SHA-256 ${fileHash}`);
           } catch {
             mediaFileList.push(`media/${entry.id}/${m.id} — DECRYPTION FAILED`);
           }

@@ -39,6 +39,16 @@ function formatDateTime(iso: string): string {
   });
 }
 
+/** Best-effort file extension for a download filename, from the stored MIME type. */
+function extForMime(mime: string): string {
+  const map: Record<string, string> = {
+    "image/jpeg": "jpg", "image/png": "png", "image/heic": "heic", "image/heif": "heif",
+    "video/mp4": "mp4", "video/quicktime": "mov",
+    "audio/mpeg": "mp3", "audio/mp4": "m4a", "audio/wav": "wav", "audio/x-m4a": "m4a",
+  };
+  return map[mime] ?? (mime.split("/")[1]?.split(";")[0] ?? "bin");
+}
+
 interface MediaRow {
   id: string;
   kind: "IMAGE" | "VIDEO" | "AUDIO";
@@ -61,6 +71,7 @@ export default function RecordDetailClient({ id, mode, email, passwordSalt }: Pr
   const [error, setError] = useState("");
   const [viewing, setViewing] = useState<Viewing | null>(null);
   const [loadingMedia, setLoadingMedia] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -102,27 +113,30 @@ export default function RecordDetailClient({ id, mode, email, passwordSalt }: Pr
     setViewing(null);
   }, [viewing]);
 
-  async function viewMedia(m: MediaRow) {
+  // Shared decrypt path: signed URL → download ciphertext → unwrap key → decrypt.
+  // The plaintext exists only as an in-memory ArrayBuffer here.
+  async function decryptToBuffer(m: MediaRow): Promise<ArrayBuffer> {
     const vaultKey = getVaultKey();
-    if (!vaultKey) { setError("Session expired. Sign in again."); return; }
+    if (!vaultKey) throw new Error("Session expired. Sign in again.");
+    const sigRes = await fetch("/api/media/signed-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mediaId: m.id }),
+    });
+    if (!sigRes.ok) throw new Error("Could not get download URL");
+    const { signedUrl, wrappedKey, wrappedKeyIv } = await sigRes.json();
+    const dlRes = await fetch(signedUrl);
+    if (!dlRes.ok) throw new Error("Download failed");
+    const encBuf = await dlRes.arrayBuffer();
+    const fileKey = await unwrapFileKey({ wrappedKey, iv: wrappedKeyIv }, vaultKey);
+    return decryptFile(encBuf, fileKey);
+  }
 
+  async function viewMedia(m: MediaRow) {
     setLoadingMedia(m.id);
+    setError("");
     try {
-      const sigRes = await fetch("/api/media/signed-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mediaId: m.id }),
-      });
-      if (!sigRes.ok) throw new Error("Could not get download URL");
-      const { signedUrl, wrappedKey, wrappedKeyIv } = await sigRes.json();
-
-      const dlRes = await fetch(signedUrl);
-      if (!dlRes.ok) throw new Error("Download failed");
-      const encBuf = await dlRes.arrayBuffer();
-
-      const fileKey = await unwrapFileKey({ wrappedKey, iv: wrappedKeyIv }, vaultKey);
-      const plainBuf = await decryptFile(encBuf, fileKey);
-
+      const plainBuf = await decryptToBuffer(m);
       const blob = new Blob([plainBuf], { type: m.mime_type });
       const url = URL.createObjectURL(blob);
       setViewing({ url, mime: m.mime_type, kind: m.kind });
@@ -130,6 +144,27 @@ export default function RecordDetailClient({ id, mode, email, passwordSalt }: Pr
       setError(err instanceof Error ? err.message : "Could not decrypt file.");
     } finally {
       setLoadingMedia(null);
+    }
+  }
+
+  // Save the decrypted file to the device so it can be sent on to a lawyer/advocate.
+  // (Unlike View, this writes an unencrypted copy to the device — see the note in the UI.)
+  async function downloadMedia(m: MediaRow) {
+    setDownloadingId(m.id);
+    setError("");
+    try {
+      const plainBuf = await decryptToBuffer(m);
+      const blob = new Blob([plainBuf], { type: m.mime_type });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `attachment-${m.id.slice(0, 8)}.${extForMime(m.mime_type)}`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not download file.");
+    } finally {
+      setDownloadingId(null);
     }
   }
 
@@ -218,13 +253,28 @@ export default function RecordDetailClient({ id, mode, email, passwordSalt }: Pr
                         type="button"
                         onClick={() => viewMedia(m)}
                         disabled={loadingMedia === m.id}
-                        className="flex-shrink-0 text-xs font-medium text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
+                        className="flex-shrink-0 text-xs font-medium text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-50"
                       >
                         {loadingMedia === m.id ? "Decrypting…" : "View"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => downloadMedia(m)}
+                        disabled={downloadingId === m.id}
+                        aria-label={`Save ${m.kind.toLowerCase()} attachment to this device`}
+                        className="flex-shrink-0 text-xs font-medium text-gray-700 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        {downloadingId === m.id ? "Saving…" : "Save"}
                       </button>
                     </div>
                   ))}
                 </div>
+                <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-2 mt-3 leading-relaxed">
+                  <span className="font-medium">View</span> keeps the file encrypted and shows it only here.
+                  <span className="font-medium"> Save</span> downloads a copy to this device (into your Files/Photos)
+                  so you can send it to a lawyer or advocate — that copy is no longer encrypted, so only save on a
+                  safe device and delete it after sending if needed.
+                </p>
               </div>
             )}
           </div>
