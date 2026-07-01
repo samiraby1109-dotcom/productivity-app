@@ -290,11 +290,16 @@ export default function ExportClient({ mode, email, passwordSalt }: Props) {
     doc.setFontSize(16); doc.setTextColor(30);
     doc.text("Personal Record Timeline", M, 52);
     doc.setFontSize(9); doc.setTextColor(110);
-    doc.text(`Prepared: ${exportedAt}`, M, 70);
+    doc.text(`Prepared: ${formatTimestamp(exportedAt)}`, M, 70);
     doc.text(`Entries: ${entries.length}`, M, 82);
     if (entries.length) {
+      // Span of the INCIDENT dates (occurred-at, falling back to logged time),
+      // matching the "When" column of the timeline. Entries are already sorted by
+      // this effective date, so first/last give the covered period.
+      const firstD = entries[0].occurred_at ?? entries[0].created_at;
+      const lastD = entries[entries.length - 1].occurred_at ?? entries[entries.length - 1].created_at;
       doc.text(
-        `Period: ${formatTimestamp(entries[0].created_at)}  —  ${formatTimestamp(entries[entries.length - 1].created_at)}`,
+        `Period covered: ${formatTimestamp(firstD)}  —  ${formatTimestamp(lastD)}`,
         M, 94
       );
     }
