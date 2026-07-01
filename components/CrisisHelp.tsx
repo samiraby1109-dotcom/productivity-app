@@ -21,6 +21,7 @@ const Chevron = () => (
 const ROWS = [
   { label: "Call 1-800-799-7233", sub: "National hotline · 24/7", href: "tel:18007997233", external: false, Icon: PhoneIcon },
   { label: "Text START to 88788", sub: "Text-based support", href: "sms:88788?&body=START", external: false, Icon: ChatIcon },
+  { label: "Call or text 988", sub: "Suicide & Crisis Lifeline · 24/7", href: "tel:988", external: false, Icon: PhoneIcon },
   { label: "Chat online", sub: "thehotline.org · no call history", href: "https://www.thehotline.org/", external: true, Icon: GlobeIcon },
 ];
 

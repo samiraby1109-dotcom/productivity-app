@@ -3,6 +3,7 @@ import { createHash } from "crypto";
 import { requireFullSession, apiError, requireJsonBody } from "@/lib/server-session";
 import { createServiceClient } from "@/lib/db";
 import { verifyPassword } from "@/lib/auth";
+import { normalizePassword } from "@/lib/password";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 /**
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (!user) return apiError(404, "User not found");
-    const valid = await verifyPassword(password, user.password_hash);
+    const valid = await verifyPassword(normalizePassword(password), user.password_hash);
     if (!valid) return apiError(401, "Incorrect password");
 
     // Build filtered query

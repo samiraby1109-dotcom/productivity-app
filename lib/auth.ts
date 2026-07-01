@@ -60,16 +60,33 @@ export function getDecoySecret(): string {
 }
 
 // ─── Decoy code hashing ───────────────────────────────────────────────────────
-// Decoy code is a 4-digit PIN; we store it hashed with HMAC+PBKDF2
+// The decoy code is a 4-digit PIN (a 10,000-value space) and is the survivor's
+// coercion-safety control — if it could be recovered from a DB leak, an abuser
+// could detect that a hidden vault exists, defeating plausible deniability.
+// A single fast HMAC over 4 digits is brute-forceable in microseconds, so we
+// derive it with PBKDF2 at password-grade cost, with the server secret as a
+// pepper (secret+salt as the PBKDF2 salt). This raises bulk offline recovery
+// from ~µs/guess to ~tens of ms/guess AND requires the secret to also leak.
+const DECOY_ITERATIONS = 200_000;
+const DECOY_PBKDF2_TAG = "pbkdf2";
+
 export async function hashDecoyCode(code: string, secret: string): Promise<string> {
   const salt = randomBytes(8).toString("hex");
-  const hash = createHmac("sha256", secret + salt).update(code).digest("hex");
-  return `${salt}${SEPARATOR}${hash}`;
+  const derived = await pbkdf2Async(code, secret + salt, DECOY_ITERATIONS, HASH_KEYLEN, HASH_DIGEST);
+  return `${DECOY_PBKDF2_TAG}${SEPARATOR}${DECOY_ITERATIONS}${SEPARATOR}${salt}${SEPARATOR}${derived.toString("hex")}`;
 }
 
-export function verifyDecoyCode(code: string, stored: string, secret: string): boolean {
+export async function verifyDecoyCode(code: string, stored: string, secret: string): Promise<boolean> {
   try {
-    const [salt, hash] = stored.split(SEPARATOR);
+    const parts = stored.split(SEPARATOR);
+    if (parts[0] === DECOY_PBKDF2_TAG) {
+      const [, iterations, salt, hash] = parts;
+      const derived = await pbkdf2Async(code, secret + salt, parseInt(iterations), HASH_KEYLEN, HASH_DIGEST);
+      return timingSafeEqual(derived.toString("hex"), hash);
+    }
+    // Legacy fast-HMAC format ("salt:hash") — still verified so any pre-existing
+    // accounts keep working; they upgrade to PBKDF2 on next PIN change.
+    const [salt, hash] = parts;
     const derived = createHmac("sha256", secret + salt).update(code).digest("hex");
     return timingSafeEqual(derived, hash);
   } catch {

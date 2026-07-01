@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import NavShell from "@/components/NavShell";
 import IdleLock from "@/components/IdleLock";
+import CrisisHelp from "@/components/CrisisHelp";
 import { getVaultKey, encryptPayload, decryptPayload, type EncryptedBlob } from "@/lib/crypto";
 
 interface Props {
@@ -126,8 +127,14 @@ export default function SafetyClient({ mode, email, passwordSalt }: Props) {
 
         <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 mb-4 text-sm text-blue-900">
           <p className="font-medium">You do not need documentation to leave.</p>
-          <p className="text-xs mt-1 text-blue-700">This guide is for planning, not legal advice.</p>
+          <p className="text-xs mt-1 text-blue-700">
+            Leaving can be the most dangerous time. A trained advocate can help you plan the
+            safest way and time to go — consider calling the hotline below before you leave.
+            This guide is for planning, not legal advice.
+          </p>
         </div>
+
+        <CrisisHelp className="mb-6" />
 
         <Link
           href="/tools/risk"
@@ -152,7 +159,12 @@ export default function SafetyClient({ mode, email, passwordSalt }: Props) {
           </Section>
 
           <Section title="Go-bag checklist">
-            <p className="text-xs text-gray-400 mb-3">
+            <p className="text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-3 leading-relaxed">
+              Only gather what is safe to gather. If a bag could be found, consider leaving items
+              with a trusted person or at work, or keeping only a mental list. Your safety comes
+              before any item.
+            </p>
+            <p className="text-xs text-gray-500 mb-3">
               Tap items to mark them as gathered. Add a note to any item. Your progress is saved on this device.
             </p>
             <ul className="space-y-2">

@@ -71,6 +71,7 @@ export default function RecordsClient({ mode, email, passwordSalt }: Props) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
   const [toast, setToast] = useState("");
 
   // The spinner is switched on in the filter-change handler (and starts true
@@ -111,11 +112,14 @@ export default function RecordsClient({ mode, email, passwordSalt }: Props) {
   }
 
   async function handleDelete(id: string) {
+    setConfirmingDelete(null);
     setDeleting(id);
     const res = await fetch(`/api/records/${id}`, { method: "DELETE" });
     if (res.ok) {
       setRecords((r) => r.filter((e) => e.id !== id));
       showToast("Entry removed.");
+    } else {
+      showToast("Could not remove that entry. Please try again.");
     }
     setDeleting(null);
   }
@@ -135,7 +139,11 @@ export default function RecordsClient({ mode, email, passwordSalt }: Props) {
 
       {/* Toast */}
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white text-sm px-5 py-3 rounded-xl shadow-lg">
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white text-sm px-5 py-3 rounded-xl shadow-lg"
+        >
           {toast}
         </div>
       )}
@@ -157,7 +165,7 @@ export default function RecordsClient({ mode, email, passwordSalt }: Props) {
         {loading ? (
           <div className="text-center py-12 text-gray-400 text-sm">Loading…</div>
         ) : records.length === 0 ? (
-          <div className="text-center py-12 text-gray-400 text-sm">
+          <div className="text-center py-12 text-gray-500 text-sm">
             {hasActiveFilters(filters) ? "No records match your filters." : "No records yet. Add your first entry."}
           </div>
         ) : (
@@ -169,7 +177,7 @@ export default function RecordsClient({ mode, email, passwordSalt }: Props) {
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-gray-400 mb-1">{formatDate(r.created_at)}</p>
+                    <p className="text-xs text-gray-500 mb-1">{formatDate(r.created_at)}</p>
 
                     {/* Incident type badges */}
                     {r.incident_types.length > 0 && (
@@ -180,13 +188,13 @@ export default function RecordsClient({ mode, email, passwordSalt }: Props) {
                           </span>
                         ))}
                         {r.incident_types.length > 3 && (
-                          <span className="text-[11px] text-gray-400">+{r.incident_types.length - 3} more</span>
+                          <span className="text-[11px] text-gray-500">+{r.incident_types.length - 3} more</span>
                         )}
                       </div>
                     )}
 
                     {/* Flags */}
-                    <div className="flex gap-2 text-xs text-gray-400">
+                    <div className="flex gap-2 text-xs text-gray-500">
                       {r.flags_police && <span>Police</span>}
                       {r.flags_children && <span>Children</span>}
                       {r.flags_witness && <span>Witness</span>}
@@ -194,29 +202,54 @@ export default function RecordsClient({ mode, email, passwordSalt }: Props) {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex items-center gap-1 flex-shrink-0">
                     <Link
                       href={`/tools/records/${r.id}`}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition-colors"
+                      className="inline-flex items-center justify-center w-11 h-11 rounded-lg text-gray-500 hover:text-brand-600 hover:bg-brand-50 transition-colors"
                       aria-label="View entry"
                     >
-                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                         <circle cx="12" cy="12" r="3" />
                       </svg>
                     </Link>
                     <button
-                      onClick={() => handleDelete(r.id)}
+                      onClick={() => setConfirmingDelete(r.id)}
                       disabled={deleting === r.id}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
+                      className="inline-flex items-center justify-center w-11 h-11 rounded-lg text-gray-500 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
                       aria-label="Remove entry"
                     >
-                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
                         <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />
                       </svg>
                     </button>
                   </div>
                 </div>
+
+                {/* Two-step confirm — deletion is permanent, so never delete on a
+                    single (possibly mis-tapped) press. */}
+                {confirmingDelete === r.id && (
+                  <div role="alertdialog" aria-label="Confirm delete" className="mt-3 rounded-lg bg-red-50 border border-red-100 p-3">
+                    <p className="text-xs text-red-800 mb-2">
+                      Delete this entry permanently? This can&apos;t be undone.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleDelete(r.id)}
+                        disabled={deleting === r.id}
+                        className="flex-1 min-h-11 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50 transition-colors"
+                      >
+                        {deleting === r.id ? "Deleting…" : "Delete"}
+                      </button>
+                      <button
+                        onClick={() => setConfirmingDelete(null)}
+                        className="flex-1 min-h-11 rounded-lg bg-white border border-gray-200 text-gray-700 text-sm font-medium hover:bg-gray-50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
 

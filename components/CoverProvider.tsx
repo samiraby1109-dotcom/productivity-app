@@ -24,6 +24,7 @@ import {
   COVER_STORAGE_KEY,
   getCover,
   coverTitle,
+  pickRandomCoverId,
   type Cover,
 } from "@/lib/covers";
 
@@ -67,6 +68,15 @@ function writeStoredId(id: string): void {
   listeners.forEach((l) => l());
 }
 
+/** Whether this device has an explicit saved cover choice yet. */
+function hasStoredCover(): boolean {
+  try {
+    return localStorage.getItem(COVER_STORAGE_KEY) != null;
+  } catch {
+    return false;
+  }
+}
+
 function applyCover(cover: Cover): void {
   if (typeof document === "undefined") return;
   document.documentElement.setAttribute("data-cover", cover.id);
@@ -89,6 +99,14 @@ export default function CoverProvider({ children }: { children: React.ReactNode 
   // Server snapshot is the default → server HTML and first client render agree.
   const id = useSyncExternalStore(subscribe, readStoredId, () => DEFAULT_COVER_ID);
   const cover = getCover(id);
+
+  // First run with no saved choice: pick a RANDOM cover so devices don't all
+  // default to the same look. Normally the inline boot script (root layout) does
+  // this before paint to avoid a flash; this is the fallback if that script was
+  // blocked. Persisted, so the choice is stable and the user can still change it.
+  useEffect(() => {
+    if (!hasStoredCover()) writeStoredId(pickRandomCoverId());
+  }, []);
 
   // DOM side effects only (no setState) — re-apply when the resolved cover changes.
   useEffect(() => {

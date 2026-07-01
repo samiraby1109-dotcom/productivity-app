@@ -15,8 +15,23 @@ export function formatDate(iso: string): string {
   });
 }
 
+// Where "Exit" sends the user: a neutral, universally-plausible site so the
+// screen no longer shows this app at all. (An in-app redirect left the abuser
+// one tap from the vault.)
+export const QUICK_EXIT_URL = "https://www.google.com";
+
 export function quickExit() {
-  // Replace current history entry so back button can't return here
-  window.history.replaceState(null, "", "/dashboard");
-  window.location.replace("/dashboard");
+  // Best-effort: end the server session so returning to the app requires a
+  // fresh unlock (the FULL session cookie otherwise stays valid for 24h, and an
+  // abuser who grabbed the phone could navigate straight back into the vault).
+  // keepalive lets the request complete even as we navigate away.
+  try {
+    void fetch("/api/auth/logout", { method: "POST", keepalive: true });
+  } catch {
+    /* navigating away regardless */
+  }
+  // location.replace (not assign) drops the current entry from history, and the
+  // logout above means any back-navigation into a vault route redirects to
+  // /login. Leaving the origin also tears down the in-memory vault key.
+  window.location.replace(QUICK_EXIT_URL);
 }

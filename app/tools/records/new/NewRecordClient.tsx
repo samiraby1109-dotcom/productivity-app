@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import NavShell from "@/components/NavShell";
 import IdleLock from "@/components/IdleLock";
@@ -62,6 +62,10 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [nudgeCount, setNudgeCount] = useState<number | null>(null);
+  // Remembers an already-created entry so that retrying after a failed
+  // attachment upload does NOT create a duplicate record.
+  const savedEntryIdRef = useRef<string | null>(null);
+  const savedTotalRef = useRef<number | null>(null);
 
   function toggleType(key: IncidentTypeKey) {
     setIncidentTypes((prev) =>
@@ -91,36 +95,57 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
         timestamp: new Date().toISOString(),
       };
 
-      const encrypted = await encryptPayload(payload, vaultKey);
-      const encryptedPayloadStr = JSON.stringify(encrypted);
+      // Create the record — unless a previous submit already created it and we
+      // are only retrying failed attachment uploads (avoids duplicate entries).
+      let entryId = savedEntryIdRef.current;
+      let totalCount = savedTotalRef.current;
+      if (!entryId) {
+        const encrypted = await encryptPayload(payload, vaultKey);
+        const encryptedPayloadStr = JSON.stringify(encrypted);
+        const res = await fetch("/api/records", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            encryptedPayload: encryptedPayloadStr,
+            incidentTypes,
+            flagsPolice,
+            flagsChildren,
+            flagsWitness,
+          }),
+        });
 
-      // Create the record
-      const res = await fetch("/api/records", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          encryptedPayload: encryptedPayloadStr,
-          incidentTypes,
-          flagsPolice,
-          flagsChildren,
-          flagsWitness,
-        }),
-      });
+        if (!res.ok) {
+          const data = await res.json();
+          setError(data.error ?? "Failed to save entry.");
+          setSubmitting(false);
+          return;
+        }
 
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.error ?? "Failed to save entry.");
-        setSubmitting(false);
-        return;
+        const created = await res.json();
+        entryId = created.id as string;
+        totalCount = created.totalCount as number;
+        savedEntryIdRef.current = entryId;
+        savedTotalRef.current = totalCount;
       }
 
-      const { id: entryId, totalCount } = await res.json();
-
-      // Encrypt and upload attachments
+      // Encrypt and upload attachments, tracking any that fail so we never
+      // pretend the entry is complete when an attachment didn't make it.
+      const failedUploads: string[] = [];
       if (files.length > 0) {
         for (const file of files) {
-          await uploadFile(file, entryId, vaultKey);
+          const ok = await uploadFile(file, entryId, vaultKey);
+          if (!ok) failedUploads.push(file.name || "attachment");
         }
+      }
+
+      if (failedUploads.length > 0) {
+        const n = failedUploads.length;
+        setError(
+          `Your entry was saved, but ${n} attachment${n > 1 ? "s" : ""} could not be uploaded (${failedUploads.join(", ")}). ` +
+            `${n > 1 ? "They were" : "It was"} NOT stored. Tap Save to try the upload again — your entry won't be duplicated.`
+        );
+        setSubmitting(false);
+        return; // do NOT navigate away as if everything succeeded
       }
 
       // Show trusted-contact nudge at every 10th entry
@@ -138,7 +163,8 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
     }
   }
 
-  async function uploadFile(file: File, entryId: string, vaultKey: CryptoKey) {
+  // Returns true if the attachment uploaded successfully, false otherwise.
+  async function uploadFile(file: File, entryId: string, vaultKey: CryptoKey): Promise<boolean> {
     try {
       const toUpload = stripMetadata ? await stripImageMetadata(file) : file;
       const fileKey = await generateFileKey();
@@ -164,7 +190,8 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
       const res = await fetch("/api/media/upload", { method: "POST", body: fd });
 
       if (!res.ok) {
-        // Queue for offline retry
+        // Keep a local encrypted copy as a backup, but report failure so the
+        // caller surfaces it — never let a failed evidence upload look saved.
         await enqueueUpload({
           id: uuidv4(),
           entryId,
@@ -177,10 +204,12 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
           sizeBytes: toUpload.size,
           createdAt: new Date().toISOString(),
           retries: 0,
-        });
+        }).catch(() => {});
+        return false;
       }
+      return true;
     } catch {
-      // Queue for retry
+      return false;
     }
   }
 
@@ -230,7 +259,7 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
           <div className="grid grid-cols-1 gap-3">
             <div>
               <label htmlFor="occurredAt" className="block text-sm font-medium text-gray-700 mb-1.5">
-                When did it happen? <span className="font-normal text-gray-400">(optional)</span>
+                When did it happen? <span className="font-normal text-gray-500">(optional)</span>
               </label>
               <input
                 id="occurredAt"
@@ -239,11 +268,11 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
                 onChange={(e) => setOccurredAt(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-brand-500 transition"
               />
-              <p className="text-xs text-gray-400 mt-1">The date and time of the incident itself, if different from now.</p>
+              <p className="text-xs text-gray-500 mt-1">The date and time of the incident itself, if different from now.</p>
             </div>
             <div>
               <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Where? <span className="font-normal text-gray-400">(optional)</span>
+                Where? <span className="font-normal text-gray-500">(optional)</span>
               </label>
               <input
                 id="location"
@@ -260,13 +289,13 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
           {/* Categories — optional, grouped to feel lighter */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Add categories <span className="font-normal text-gray-400">(optional)</span>
+              Add categories <span className="font-normal text-gray-500">(optional)</span>
             </label>
-            <p className="text-xs text-gray-400 mb-3">Tags make entries easier to find and export later.</p>
+            <p className="text-xs text-gray-500 mb-3">Tags make entries easier to find and export later.</p>
             <div className="space-y-3">
               {INCIDENT_TYPE_GROUPS.map((g) => (
                 <div key={g.label}>
-                  <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400 mb-1.5">{g.label}</p>
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-gray-500 mb-1.5">{g.label}</p>
                   <div className="flex flex-wrap gap-1.5">
                     {g.keys.map((k) => (
                       <button
@@ -291,7 +320,7 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
           {/* Flags — optional */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Anything relevant? <span className="font-normal text-gray-400">(optional)</span>
+              Anything relevant? <span className="font-normal text-gray-500">(optional)</span>
             </label>
             <div className="flex flex-wrap gap-2">
               {[
@@ -305,7 +334,7 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
                   onClick={() => set(!value)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                     value
-                      ? "bg-brand-500 text-white"
+                      ? "bg-brand-600 text-white"
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
                 >
@@ -318,7 +347,7 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
           {/* File attachments */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Attachments <span className="font-normal text-gray-400">(photos, video, audio)</span>
+              Attachments <span className="font-normal text-gray-500">(photos, video, audio)</span>
             </label>
             <input
               type="file"
@@ -328,9 +357,9 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
               className="w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-brand-50 file:text-brand-700 file:text-xs file:font-medium hover:file:bg-brand-100 transition"
             />
             {files.length > 0 && (
-              <p className="text-xs text-gray-400 mt-1">{files.length} file(s) selected — will be encrypted before upload.</p>
+              <p className="text-xs text-gray-500 mt-1">{files.length} file(s) selected — will be encrypted before upload.</p>
             )}
-            <p className="text-xs text-gray-400 mt-2 leading-relaxed">
+            <p className="text-xs text-gray-500 mt-2 leading-relaxed">
               Adding audio or video of another person? Recording-consent laws vary by state — see{" "}
               <span className="font-medium text-gray-500">Guides → Recording laws</span> before you record.
             </p>
@@ -343,12 +372,12 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
               />
               <span>
                 Remove hidden location data (GPS/EXIF) from photos.{" "}
-                <span className="text-gray-400">Recommended — protects your location if an export is ever shared. Photos are re-saved; video and audio are unaffected.</span>
+                <span className="text-gray-500">Recommended — protects your location if an export is ever shared. Photos are re-saved; video and audio are unaffected.</span>
               </span>
             </label>
           </div>
 
-          {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+          {error && <p role="alert" className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
 
           <button
             type="submit"

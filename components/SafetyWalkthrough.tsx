@@ -42,10 +42,10 @@ export default function SafetyWalkthrough() {
       className="fixed inset-0 z-[90] bg-black/40 flex items-end sm:items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
-      aria-label="Welcome and safety tips"
+      aria-labelledby="safety-walkthrough-title"
     >
       <div className="bg-white rounded-2xl w-full max-w-sm p-5 max-h-[85vh] overflow-y-auto">
-        <h2 className="text-base font-semibold text-gray-900">A few things to know</h2>
+        <h2 id="safety-walkthrough-title" className="text-base font-semibold text-gray-900">A few things to know</h2>
         <p className="text-xs text-gray-500 mt-1 mb-4">Your safety comes first — here&apos;s how this app helps protect you.</p>
         <ul className="space-y-3.5">
           {POINTS.map((p) => (

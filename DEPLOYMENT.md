@@ -35,6 +35,21 @@ Set these for the **Production** environment. Never commit real values.
 
 ## 2. Database (Supabase)
 
+### Not sure which migrations already ran? Audit first.
+
+If you ran some migrations by hand (pasting into the SQL editor) there is no
+automatic record of which ones. **Before re-running anything**, paste
+[`supabase/audit_migrations.sql`](supabase/audit_migrations.sql) into the
+Supabase SQL editor and run it — it reports `✅ yes` / `❌ NO` per migration and
+**writes nothing to your data** (it only creates a throwaway session-local helper
+function). Then run only the files that show `❌ NO`.
+
+> Re-running an already-applied migration does **not** lose data. Six are fully
+> idempotent (003, 005, 007, 008, 009, 011); the other five (001, 002, 004, 006,
+> 010) just throw a harmless `policy ... already exists` error and change nothing.
+> The audit avoids that noise by telling you exactly what's missing. The one file
+> to never run in production is `003` (see below).
+
 Run the migrations in order in the Supabase SQL editor (or via CLI):
 
 ```
@@ -51,12 +66,12 @@ supabase/migrations/001_initial_schema.sql
 011_login_events.sql
 ```
 
-Verify after running:
+Verify after running (or just re-run `audit_migrations.sql` — every row should read `✅ yes`, except 003 in production):
 - [ ] `users` table has `failed_attempts` and `locked_until` columns (008) — required for persistent login lockout.
 - [ ] `increment_rate_limit` RPC exists and is restricted (006, 009) — required for the distributed rate limiter.
 - [ ] `vault-media` storage bucket exists and is **private** (002).
 - [ ] Row Level Security is enabled on all vault tables.
-- [ ] **Do not** run `003_seed_demo_user.sql` in production (it creates the public demo credentials).
+- [ ] **Do not** run `003_seed_demo_user.sql` in production (it creates the public demo credentials). In the audit, the `003` row **must read `❌ NO`** on prod — a `✅ yes` means the demo user is present and must be deleted.
 
 ---
 
@@ -88,12 +103,17 @@ access (a survivor may not have safe email). Verifying just records a timestamp.
 
 ---
 
-## 6. Naming / legal (before any public push)
+## 6. Naming / legal
 
-- [ ] Trademark-check the app name(s) (currently "BelleMeadow Wellness"; see the
-      cover/skins system for alternates).
+- [x] Entity: **Belle Meadow LLC (Missouri)** is registered — this gives common-law
+      rights to the name in commerce and is sufficient to run an advocate pilot.
+- [ ] Federal trademark (®) is **optional / later** — a "nice to have" once there's
+      budget, not a blocker for a pilot. Registering the LLC does not register a
+      trademark, but you are not required to have one to operate or to test with
+      advocates. Revisit if/when you expand publicly or funding allows.
 - [ ] Confirm all user-facing copy carries the "not legal advice" framing where appropriate.
-- [ ] Privacy policy / terms reviewed for the neutral public positioning.
+- [ ] Privacy policy / terms reviewed for the neutral public positioning (a simple
+      privacy policy is worth having before real users; templates are fine to start).
 
 ---
 

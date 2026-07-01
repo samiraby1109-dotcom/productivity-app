@@ -62,12 +62,14 @@ describe("verifyPassword", () => {
 // ─── hashDecoyCode / verifyDecoyCode ──────────────────────────────────────────
 
 describe("hashDecoyCode", () => {
-  it("produces a colon-delimited salt:hash string", async () => {
+  it("produces a tagged pbkdf2:iterations:salt:hash string", async () => {
     const stored = await hashDecoyCode("1234", SECRET);
     const parts = stored.split(":");
-    expect(parts).toHaveLength(2);
-    expect(parts[0]).toHaveLength(16); // 8 bytes → 16 hex chars
-    expect(parts[1]).toHaveLength(64); // SHA-256 → 32 bytes → 64 hex chars
+    expect(parts).toHaveLength(4);
+    expect(parts[0]).toBe("pbkdf2");
+    expect(Number(parts[1])).toBeGreaterThanOrEqual(200_000); // iteration count
+    expect(parts[2]).toHaveLength(16); // 8-byte salt → 16 hex chars
+    expect(parts[3]).toHaveLength(128); // 64-byte key → 128 hex chars
   });
 
   it("produces different stored values each call (random salt)", async () => {
@@ -80,22 +82,31 @@ describe("hashDecoyCode", () => {
 describe("verifyDecoyCode", () => {
   it("verifies correct decoy code", async () => {
     const stored = await hashDecoyCode("5678", SECRET);
-    expect(verifyDecoyCode("5678", stored, SECRET)).toBe(true);
+    expect(await verifyDecoyCode("5678", stored, SECRET)).toBe(true);
   });
 
   it("rejects wrong decoy code", async () => {
     const stored = await hashDecoyCode("5678", SECRET);
-    expect(verifyDecoyCode("1234", stored, SECRET)).toBe(false);
+    expect(await verifyDecoyCode("1234", stored, SECRET)).toBe(false);
   });
 
   it("rejects correct code with wrong secret", async () => {
     const stored = await hashDecoyCode("5678", SECRET);
-    expect(verifyDecoyCode("5678", stored, "different-secret")).toBe(false);
+    expect(await verifyDecoyCode("5678", stored, "different-secret")).toBe(false);
   });
 
   it("rejects malformed stored value gracefully", async () => {
-    expect(verifyDecoyCode("1234", "invalid", SECRET)).toBe(false);
-    expect(verifyDecoyCode("1234", "", SECRET)).toBe(false);
+    expect(await verifyDecoyCode("1234", "invalid", SECRET)).toBe(false);
+    expect(await verifyDecoyCode("1234", "", SECRET)).toBe(false);
+  });
+
+  it("still verifies a legacy fast-HMAC stored value (back-compat)", async () => {
+    // Pre-upgrade format: "salt:hmacHex" using HMAC(secret+salt, code).
+    const { createHmac } = await import("crypto");
+    const salt = "abcdef0123456789";
+    const legacy = `${salt}:${createHmac("sha256", SECRET + salt).update("4321").digest("hex")}`;
+    expect(await verifyDecoyCode("4321", legacy, SECRET)).toBe(true);
+    expect(await verifyDecoyCode("0000", legacy, SECRET)).toBe(false);
   });
 });
 

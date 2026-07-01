@@ -86,14 +86,16 @@ export async function GET(req: NextRequest) {
     {
       env,
       db: { connected, tablesExist },
+      // In production the demo user should NOT exist; surface it as a warning,
+      // not a goal. (No credentials are ever included in this response.)
       demoUser: { exists: demoUserExists },
       hint: !env.supabaseUrl || !env.serviceKey
         ? "Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Vercel env vars, then redeploy."
         : !tablesExist
-        ? "Run supabase/migrations/001_initial_schema.sql and 002_storage_bucket.sql in your Supabase SQL editor."
-        : !demoUserExists
-        ? "POST /api/admin/seed-demo with Authorization: Bearer <CRON_SECRET> to create the demo user."
-        : "All systems go. Login with demo@tracker.local / TrackerDemo2026.",
+        ? "Run the migrations in supabase/migrations (001–011) in your Supabase SQL editor."
+        : demoUserExists && process.env.NODE_ENV === "production"
+        ? "WARNING: the demo user exists in production. Delete it — see supabase/audit_migrations.sql (the 003 row must read NO)."
+        : "All systems go.",
     },
     { status }
   );

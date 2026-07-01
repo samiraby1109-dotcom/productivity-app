@@ -21,7 +21,6 @@ export default function OnboardingPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [passwordHint, setPasswordHint] = useState("");
   const [decoyCode, setDecoyCode] = useState("");
   const [confirmDecoy, setConfirmDecoy] = useState("");
   const [error, setError] = useState("");
@@ -86,7 +85,6 @@ export default function OnboardingPage() {
         body: JSON.stringify({
           email: email.trim(),
           password: pw,
-          passwordHint: passwordHint.trim() || undefined,
           decoyCode,
           vault: {
             vmkWrapped: vmkPw.wrapped,
@@ -147,8 +145,9 @@ export default function OnboardingPage() {
             <CoverPicker className="pb-1" />
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <label htmlFor="onboard-email" className="block text-sm font-medium text-gray-700 mb-1">Email</label>
               <input
+                id="onboard-email"
                 type="email"
                 required
                 value={email}
@@ -159,8 +158,9 @@ export default function OnboardingPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+              <label htmlFor="onboard-password" className="block text-sm font-medium text-gray-700 mb-1">Password</label>
               <input
+                id="onboard-password"
                 type="password"
                 required
                 minLength={8}
@@ -172,8 +172,9 @@ export default function OnboardingPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Confirm password</label>
+              <label htmlFor="onboard-confirm-password" className="block text-sm font-medium text-gray-700 mb-1">Confirm password</label>
               <input
+                id="onboard-confirm-password"
                 type="password"
                 required
                 value={confirmPassword}
@@ -181,21 +182,6 @@ export default function OnboardingPage() {
                 className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 transition"
                 placeholder="Repeat your password"
               />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Password hint <span className="text-gray-400 font-normal">(optional)</span>
-              </label>
-              <input
-                type="text"
-                value={passwordHint}
-                onChange={(e) => setPasswordHint(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 transition"
-                placeholder="A subtle reminder (not your password)"
-                maxLength={120}
-              />
-              <p className="text-xs text-gray-400 mt-1">Shown only if you tap &quot;Need help?&quot; on the login screen.</p>
             </div>
 
             <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-xs text-amber-900 leading-relaxed">
@@ -208,7 +194,7 @@ export default function OnboardingPage() {
               </p>
             </div>
 
-            {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+            {error && <p role="alert" className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
 
             <button
               type="submit"
@@ -229,8 +215,9 @@ export default function OnboardingPage() {
             </p>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">4-digit code</label>
+              <label htmlFor="onboard-decoy-code" className="block text-sm font-medium text-gray-700 mb-1">4-digit code</label>
               <input
+                id="onboard-decoy-code"
                 type="tel"
                 pattern="\d{4}"
                 maxLength={4}
@@ -243,8 +230,9 @@ export default function OnboardingPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Confirm code</label>
+              <label htmlFor="onboard-confirm-code" className="block text-sm font-medium text-gray-700 mb-1">Confirm code</label>
               <input
+                id="onboard-confirm-code"
                 type="tel"
                 pattern="\d{4}"
                 maxLength={4}
@@ -256,7 +244,7 @@ export default function OnboardingPage() {
               />
             </div>
 
-            {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+            {error && <p role="alert" className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
 
             <div className="flex gap-3">
               <button
@@ -310,7 +298,7 @@ export default function OnboardingPage() {
               This helps ensure your records are not accidentally or permanently lost.
             </p>
 
-            {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+            {error && <p role="alert" className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
 
             <div className="flex gap-3">
               <button

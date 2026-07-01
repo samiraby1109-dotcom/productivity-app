@@ -214,8 +214,9 @@ export default function ContactsClient({ mode, email, passwordSalt }: Props) {
             <p className="text-sm font-semibold text-gray-900">{editId ? "Edit contact" : "New contact"}</p>
 
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Name *</label>
+              <label htmlFor="contact-name" className="block text-xs font-medium text-gray-600 mb-1">Name *</label>
               <input
+                id="contact-name"
                 type="text"
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
@@ -225,8 +226,9 @@ export default function ContactsClient({ mode, email, passwordSalt }: Props) {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Phone *</label>
+              <label htmlFor="contact-phone" className="block text-xs font-medium text-gray-600 mb-1">Phone *</label>
               <input
+                id="contact-phone"
                 type="tel"
                 value={form.phone}
                 onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
@@ -236,8 +238,9 @@ export default function ContactsClient({ mode, email, passwordSalt }: Props) {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Role</label>
+              <label htmlFor="contact-relationship" className="block text-xs font-medium text-gray-600 mb-1">Role</label>
               <input
+                id="contact-relationship"
                 type="text"
                 list="relationship-options"
                 value={form.relationship}
@@ -251,8 +254,9 @@ export default function ContactsClient({ mode, email, passwordSalt }: Props) {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Email (optional)</label>
+              <label htmlFor="contact-email" className="block text-xs font-medium text-gray-600 mb-1">Email (optional)</label>
               <input
+                id="contact-email"
                 type="email"
                 value={form.email}
                 onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
@@ -262,8 +266,9 @@ export default function ContactsClient({ mode, email, passwordSalt }: Props) {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Notes (optional)</label>
+              <label htmlFor="contact-notes" className="block text-xs font-medium text-gray-600 mb-1">Notes (optional)</label>
               <input
+                id="contact-notes"
                 type="text"
                 value={form.notes}
                 onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
@@ -273,7 +278,7 @@ export default function ContactsClient({ mode, email, passwordSalt }: Props) {
             </div>
 
             {formError && (
-              <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{formError}</p>
+              <p role="alert" className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{formError}</p>
             )}
 
             <div className="flex gap-2 pt-1">

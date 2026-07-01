@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { normalizePassword } from "@/lib/password";
 import { clearVaultKey } from "@/lib/crypto";
 
@@ -14,6 +14,49 @@ export default function DeleteAccount() {
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const close = useCallback(() => {
+    setOpen(false);
+    setError("");
+    setPassword("");
+    setConfirm("");
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const form = formRef.current;
+    const focusable = form?.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), input, textarea, select, [tabindex]:not([tabindex="-1"])'
+    );
+    focusable?.[0]?.focus();
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        close();
+        return;
+      }
+      if (e.key === "Tab" && form) {
+        const items = form.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input, textarea, select, [tabindex]:not([tabindex="-1"])'
+        );
+        if (items.length === 0) return;
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    }
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open, close]);
 
   async function handleDelete(e: React.FormEvent) {
     e.preventDefault();
@@ -41,7 +84,7 @@ export default function DeleteAccount() {
 
   return (
     <section className="mt-8 rounded-2xl border border-red-200 bg-red-50/60 p-4">
-      <h2 className="text-sm font-semibold text-red-800">Delete account</h2>
+      <h2 id="delete-account-title" className="text-sm font-semibold text-red-800">Delete account</h2>
       <p className="text-xs text-red-700 mt-1 leading-relaxed">
         Permanently erases your account and everything in it — all records, attachments, contacts, and
         recovery codes. This cannot be undone and there is no backup. Consider exporting your records first.
@@ -56,7 +99,14 @@ export default function DeleteAccount() {
           I want to delete my account
         </button>
       ) : (
-        <form onSubmit={handleDelete} className="mt-3 space-y-3">
+        <form
+          ref={formRef}
+          onSubmit={handleDelete}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-account-title"
+          className="mt-3 space-y-3"
+        >
           <div>
             <label className="block text-xs font-medium text-red-800 mb-1">Confirm your password</label>
             <input
@@ -80,11 +130,11 @@ export default function DeleteAccount() {
               placeholder="DELETE"
             />
           </div>
-          {error && <p className="text-sm text-red-700 bg-red-100 rounded-lg px-3 py-2">{error}</p>}
+          {error && <p role="alert" className="text-sm text-red-700 bg-red-100 rounded-lg px-3 py-2">{error}</p>}
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => { setOpen(false); setError(""); setPassword(""); setConfirm(""); }}
+              onClick={close}
               className="flex-1 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-700 text-sm font-medium hover:bg-gray-50 transition-colors"
             >
               Cancel

@@ -37,11 +37,25 @@ export default function IdleLock({ mode, email }: Props) {
     const events = ["mousemove", "keydown", "touchstart", "scroll", "click", "bw-autolock-change"];
     events.forEach((e) => window.addEventListener(e, resetTimer, { passive: true }));
     resetTimer();
+
+    // Lock immediately when the app is backgrounded/hidden. Mobile browsers
+    // heavily throttle background timers, so the idle timer alone can leave the
+    // vault unlocked long after the screen is put away — exactly when an abuser
+    // is most likely to pick up the phone. visibilitychange/pagehide fire
+    // reliably on app-switch, screen-off, and tab-hide.
+    const onHide = () => {
+      if (document.visibilityState === "hidden") lock();
+    };
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("pagehide", onHide);
+
     return () => {
       events.forEach((e) => window.removeEventListener(e, resetTimer));
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("pagehide", onHide);
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [resetTimer]);
+  }, [resetTimer, lock]);
 
   async function handleUnlock(e: React.FormEvent) {
     e.preventDefault();
@@ -93,11 +107,16 @@ export default function IdleLock({ mode, email }: Props) {
   if (!locked) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center px-4">
+    <div
+      className="fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center px-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="idle-lock-title"
+    >
       <div className="w-full max-w-xs text-center space-y-6">
         <div>
           <div className="text-4xl mb-3">🔒</div>
-          <h2 className="text-lg font-semibold text-gray-900">Screen locked</h2>
+          <h1 id="idle-lock-title" className="text-lg font-semibold text-gray-900">Screen locked</h1>
           <p className="text-sm text-gray-500 mt-1">Enter your password to continue.</p>
         </div>
 
@@ -111,7 +130,7 @@ export default function IdleLock({ mode, email }: Props) {
             className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 text-center"
             placeholder="Your password"
           />
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
           <button
             type="submit"
             disabled={submitting}
