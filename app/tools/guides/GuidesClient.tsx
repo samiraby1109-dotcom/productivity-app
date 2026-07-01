@@ -131,7 +131,7 @@ const WHEEL_SPOKES = [
 ];
 
 export default function GuidesClient({ mode, email, passwordSalt }: Props) {
-  const [open, setOpen] = useState<Set<string>>(new Set(["self-check"]));
+  const [open, setOpen] = useState<Set<string>>(new Set(["safety-features"]));
   const [wheelSpoke, setWheelSpoke] = useState<number | null>(null);
 
   function toggle(id: string) {
@@ -153,6 +153,48 @@ export default function GuidesClient({ mode, email, passwordSalt }: Props) {
         </p>
 
         <div className="space-y-3">
+
+          {/* ── How this app protects you ── */}
+          <AccordionSection id="safety-features" title="How this app protects you" open={open.has("safety-features")} onToggle={() => toggle("safety-features")}>
+            <p className="text-xs text-gray-500 mb-3 leading-relaxed">
+              This app is built to look like an ordinary daily tracker so it doesn&apos;t draw attention.
+              Here&apos;s how each safety feature works — this page is only visible after you sign in with
+              your password, so it&apos;s safe to read here.
+            </p>
+            <div className="space-y-3">
+              {[
+                {
+                  h: "Your 4-digit code opens a decoy",
+                  b: "If someone pressures you to open the app, enter your 4-digit code instead of your password. It shows a normal daily tracker (tasks, notes, habits) — your private Records, contacts, and safety plan are completely hidden and can't be reached. Nothing reveals that a private side exists. Your real password is the only thing that opens Records.",
+                },
+                {
+                  h: "The Exit button leaves instantly",
+                  b: "Tapping Exit (bottom-right) immediately sends you to a neutral website and signs you out, so your password is needed to get back in. Use it any time someone approaches.",
+                },
+                {
+                  h: "It locks itself when you put it away",
+                  b: "If you switch apps, turn off the screen, or leave it idle, the app locks and asks for your password again — so an unlocked phone doesn't expose your Records.",
+                },
+                {
+                  h: "Your Records are encrypted",
+                  b: "Everything in Records, Contacts, and attachments is scrambled on your device before it's saved. Not even we can read it. Only your password (or a recovery code) can unlock it. The everyday day-view (tasks/notes/habits) is NOT encrypted — keep anything sensitive in Records.",
+                },
+                {
+                  h: "Recovery codes are your way back in",
+                  b: "If you forget your password, a one-time recovery code is the only way to regain access — and it keeps your existing Records readable. Store them somewhere private, off this phone. If you want someone you trust to be able to help you get back in, you can give them a recovery code (that lets them fully sign in as you, so choose carefully).",
+                },
+              ].map((item) => (
+                <div key={item.h}>
+                  <p className="text-sm font-medium text-gray-900">{item.h}</p>
+                  <p className="text-xs text-gray-600 leading-relaxed mt-0.5">{item.b}</p>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-gray-400 mt-3 border-t border-gray-100 pt-3 leading-relaxed">
+              No tool is perfect. If someone may be monitoring your device itself, consider using a safer
+              computer (a library or a trusted friend&apos;s) and calling an advocate to plan.
+            </p>
+          </AccordionSection>
 
           {/* ── Is this abuse? ── */}
           <AccordionSection id="self-check" title="Is this abuse?" open={open.has("self-check")} onToggle={() => toggle("self-check")}>

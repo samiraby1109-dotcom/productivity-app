@@ -136,6 +136,11 @@ export default function RecoverPage() {
 
         {phase === "enter" && (
           <form onSubmit={handleVerify} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
+            <p className="text-xs text-gray-600 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 leading-relaxed">
+              To reset your password you&apos;ll need <span className="font-medium">both</span> a recovery
+              code and access to your email — after you choose a new password, we&apos;ll send a link to
+              confirm it. This keeps someone who only finds a code from taking over your account.
+            </p>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="email">Email</label>
               <input

@@ -230,8 +230,8 @@ export default function DashboardClient({ mode, email, passwordSalt, showWelcome
     <>
       {showNudge && (
         <TrustedContactNudgeModal
-          title="Add a trusted contact"
-          message="Consider adding someone you trust — a DV advocate, attorney, or close friend — so they can help you access your records if you ever need it."
+          title="Save a trusted contact"
+          message="Keep the details of someone you trust — a DV advocate, attorney, or close friend. This just saves their info here; to let them help you get back into your account, you can share a recovery code with them."
           onDismiss={handleDismissNudge}
         />
       )}
