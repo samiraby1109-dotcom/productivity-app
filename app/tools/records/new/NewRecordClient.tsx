@@ -218,7 +218,7 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
       {nudgeCount !== null && (
         <TrustedContactNudgeModal
           title={`${nudgeCount} entries logged`}
-          message="You've built a strong record. Consider adding a trusted contact — someone who can help you access this if you ever need it."
+          message="You've built a strong record. Consider saving a trusted contact — a DV advocate, attorney, or friend. It just keeps their info handy; to let them help you get back into your account, you can share a recovery code with them."
           onDismiss={() => router.replace("/tools/records")}
         />
       )}
