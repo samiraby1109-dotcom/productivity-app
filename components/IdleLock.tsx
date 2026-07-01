@@ -107,11 +107,16 @@ export default function IdleLock({ mode, email }: Props) {
   if (!locked) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center px-4">
+    <div
+      className="fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center px-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="idle-lock-title"
+    >
       <div className="w-full max-w-xs text-center space-y-6">
         <div>
           <div className="text-4xl mb-3">🔒</div>
-          <h2 className="text-lg font-semibold text-gray-900">Screen locked</h2>
+          <h1 id="idle-lock-title" className="text-lg font-semibold text-gray-900">Screen locked</h1>
           <p className="text-sm text-gray-500 mt-1">Enter your password to continue.</p>
         </div>
 
@@ -125,7 +130,7 @@ export default function IdleLock({ mode, email }: Props) {
             className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 text-center"
             placeholder="Your password"
           />
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
           <button
             type="submit"
             disabled={submitting}

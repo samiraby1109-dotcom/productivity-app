@@ -12,9 +12,11 @@
 
 const RESEND_API_URL = "https://api.resend.com/emails";
 
-// Neutral sender — change to your verified Resend domain before launch
+// Neutral sender. Defaults to the verified Resend domain (mail.bellemeadow.app);
+// override with RESEND_FROM_ADDRESS if you send from a different verified domain.
+// The domain here MUST be verified in Resend or sends will fail.
 const FROM_ADDRESS =
-  process.env.RESEND_FROM_ADDRESS ?? "BelleMeadow Wellness <noreply@bellemeadowwellness.com>";
+  process.env.RESEND_FROM_ADDRESS ?? "BelleMeadow Wellness <noreply@mail.bellemeadow.app>";
 
 /** Returns true if email sending is configured and enabled. */
 export function emailEnabled(): boolean {

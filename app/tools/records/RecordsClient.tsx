@@ -165,7 +165,7 @@ export default function RecordsClient({ mode, email, passwordSalt }: Props) {
         {loading ? (
           <div className="text-center py-12 text-gray-400 text-sm">Loading…</div>
         ) : records.length === 0 ? (
-          <div className="text-center py-12 text-gray-400 text-sm">
+          <div className="text-center py-12 text-gray-500 text-sm">
             {hasActiveFilters(filters) ? "No records match your filters." : "No records yet. Add your first entry."}
           </div>
         ) : (
@@ -177,7 +177,7 @@ export default function RecordsClient({ mode, email, passwordSalt }: Props) {
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-gray-400 mb-1">{formatDate(r.created_at)}</p>
+                    <p className="text-xs text-gray-500 mb-1">{formatDate(r.created_at)}</p>
 
                     {/* Incident type badges */}
                     {r.incident_types.length > 0 && (
@@ -188,13 +188,13 @@ export default function RecordsClient({ mode, email, passwordSalt }: Props) {
                           </span>
                         ))}
                         {r.incident_types.length > 3 && (
-                          <span className="text-[11px] text-gray-400">+{r.incident_types.length - 3} more</span>
+                          <span className="text-[11px] text-gray-500">+{r.incident_types.length - 3} more</span>
                         )}
                       </div>
                     )}
 
                     {/* Flags */}
-                    <div className="flex gap-2 text-xs text-gray-400">
+                    <div className="flex gap-2 text-xs text-gray-500">
                       {r.flags_police && <span>Police</span>}
                       {r.flags_children && <span>Children</span>}
                       {r.flags_witness && <span>Witness</span>}

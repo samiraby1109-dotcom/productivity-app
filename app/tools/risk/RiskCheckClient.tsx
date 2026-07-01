@@ -119,14 +119,14 @@ export default function RiskCheckClient({ mode, email, passwordSalt }: Props) {
             >
               See my reflection
             </button>
-            <p className="text-[11px] text-gray-400 leading-relaxed">
+            <p className="text-[11px] text-gray-500 leading-relaxed">
               Based on risk factors identified in domestic-violence research, including the work of
               Dr.&nbsp;Jacquelyn Campbell. An advocate can help you make sense of your specific situation.
             </p>
           </form>
         ) : (
           <div className="space-y-5">
-            <div className={`rounded-2xl border p-4 ${TONE[result.tone]}`}>
+            <div role="status" aria-live="polite" className={`rounded-2xl border p-4 ${TONE[result.tone]}`}>
               <p className="text-sm font-semibold">{result.heading}</p>
               <p className="text-sm mt-1 leading-relaxed">{result.body}</p>
               <p className="text-xs mt-3 opacity-80">

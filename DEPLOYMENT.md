@@ -103,12 +103,17 @@ access (a survivor may not have safe email). Verifying just records a timestamp.
 
 ---
 
-## 6. Naming / legal (before any public push)
+## 6. Naming / legal
 
-- [ ] Trademark-check the app name(s) (currently "BelleMeadow Wellness"; see the
-      cover/skins system for alternates).
+- [x] Entity: **Belle Meadow LLC (Missouri)** is registered — this gives common-law
+      rights to the name in commerce and is sufficient to run an advocate pilot.
+- [ ] Federal trademark (®) is **optional / later** — a "nice to have" once there's
+      budget, not a blocker for a pilot. Registering the LLC does not register a
+      trademark, but you are not required to have one to operate or to test with
+      advocates. Revisit if/when you expand publicly or funding allows.
 - [ ] Confirm all user-facing copy carries the "not legal advice" framing where appropriate.
-- [ ] Privacy policy / terms reviewed for the neutral public positioning.
+- [ ] Privacy policy / terms reviewed for the neutral public positioning (a simple
+      privacy policy is worth having before real users; templates are fine to start).
 
 ---
 

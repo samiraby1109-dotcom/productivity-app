@@ -32,13 +32,13 @@ export default function CoverPicker({ className = "" }: { className?: string }) 
               />
               <span className="min-w-0">
                 <span className="block text-sm font-medium text-gray-900 truncate">{c.name}</span>
-                <span className="block text-[11px] text-gray-400 truncate">{c.tagline}</span>
+                <span className="block text-[11px] text-gray-500 truncate">{c.tagline}</span>
               </span>
             </button>
           );
         })}
       </div>
-      <p className="text-[11px] text-gray-400 mt-2">You can change this anytime in settings.</p>
+      <p className="text-[11px] text-gray-500 mt-2">You can change this anytime in settings.</p>
     </div>
   );
 }

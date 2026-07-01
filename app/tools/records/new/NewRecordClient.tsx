@@ -259,7 +259,7 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
           <div className="grid grid-cols-1 gap-3">
             <div>
               <label htmlFor="occurredAt" className="block text-sm font-medium text-gray-700 mb-1.5">
-                When did it happen? <span className="font-normal text-gray-400">(optional)</span>
+                When did it happen? <span className="font-normal text-gray-500">(optional)</span>
               </label>
               <input
                 id="occurredAt"
@@ -268,11 +268,11 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
                 onChange={(e) => setOccurredAt(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-brand-500 transition"
               />
-              <p className="text-xs text-gray-400 mt-1">The date and time of the incident itself, if different from now.</p>
+              <p className="text-xs text-gray-500 mt-1">The date and time of the incident itself, if different from now.</p>
             </div>
             <div>
               <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Where? <span className="font-normal text-gray-400">(optional)</span>
+                Where? <span className="font-normal text-gray-500">(optional)</span>
               </label>
               <input
                 id="location"
@@ -289,13 +289,13 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
           {/* Categories — optional, grouped to feel lighter */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Add categories <span className="font-normal text-gray-400">(optional)</span>
+              Add categories <span className="font-normal text-gray-500">(optional)</span>
             </label>
-            <p className="text-xs text-gray-400 mb-3">Tags make entries easier to find and export later.</p>
+            <p className="text-xs text-gray-500 mb-3">Tags make entries easier to find and export later.</p>
             <div className="space-y-3">
               {INCIDENT_TYPE_GROUPS.map((g) => (
                 <div key={g.label}>
-                  <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400 mb-1.5">{g.label}</p>
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-gray-500 mb-1.5">{g.label}</p>
                   <div className="flex flex-wrap gap-1.5">
                     {g.keys.map((k) => (
                       <button
@@ -320,7 +320,7 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
           {/* Flags — optional */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Anything relevant? <span className="font-normal text-gray-400">(optional)</span>
+              Anything relevant? <span className="font-normal text-gray-500">(optional)</span>
             </label>
             <div className="flex flex-wrap gap-2">
               {[
@@ -334,7 +334,7 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
                   onClick={() => set(!value)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                     value
-                      ? "bg-brand-500 text-white"
+                      ? "bg-brand-600 text-white"
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
                 >
@@ -347,7 +347,7 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
           {/* File attachments */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Attachments <span className="font-normal text-gray-400">(photos, video, audio)</span>
+              Attachments <span className="font-normal text-gray-500">(photos, video, audio)</span>
             </label>
             <input
               type="file"
@@ -357,9 +357,9 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
               className="w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-brand-50 file:text-brand-700 file:text-xs file:font-medium hover:file:bg-brand-100 transition"
             />
             {files.length > 0 && (
-              <p className="text-xs text-gray-400 mt-1">{files.length} file(s) selected — will be encrypted before upload.</p>
+              <p className="text-xs text-gray-500 mt-1">{files.length} file(s) selected — will be encrypted before upload.</p>
             )}
-            <p className="text-xs text-gray-400 mt-2 leading-relaxed">
+            <p className="text-xs text-gray-500 mt-2 leading-relaxed">
               Adding audio or video of another person? Recording-consent laws vary by state — see{" "}
               <span className="font-medium text-gray-500">Guides → Recording laws</span> before you record.
             </p>
@@ -372,12 +372,12 @@ export default function NewRecordClient({ mode, email, passwordSalt }: Props) {
               />
               <span>
                 Remove hidden location data (GPS/EXIF) from photos.{" "}
-                <span className="text-gray-400">Recommended — protects your location if an export is ever shared. Photos are re-saved; video and audio are unaffected.</span>
+                <span className="text-gray-500">Recommended — protects your location if an export is ever shared. Photos are re-saved; video and audio are unaffected.</span>
               </span>
             </label>
           </div>
 
-          {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+          {error && <p role="alert" className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
 
           <button
             type="submit"
